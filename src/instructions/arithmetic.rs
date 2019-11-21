@@ -1,15 +1,21 @@
-fn adc(avr: &mut momory::Core) {
-    println!("adc")
+use super::super::core::Core;
+
+pub fn adc(avr: &mut Core) {
+    println!("adc");
 }
 
-fn add(avr: &mut momory::Core) {
-    println!("add")
+pub fn add(avr: &mut Core) {
+    println!("add");
 }
 
-fn adiw(avr: &mut momory::Core) {
-    println!("adiw")
+pub fn adiw(avr: &mut Core) {
+    println!("adiw");
 }
 
-fn andi(avr: &mut momory::Core) {
-    println!("andi")
+pub fn andi(avr: &mut Core) {
+    println!("andi");
+}
+
+pub fn and(avr: &mut Core) {
+    println!("and");
 }

@@ -28,7 +28,7 @@ impl Core {
         println!("pc: {:#04x}", self.pc);
         let opcode = self.mem.get(self.pc as u16);
         println!("mem[pc] : {:#018b}", opcode);
-        let instruction = decode(opcode);
-        instruction(&mut self);
+        // let instruction = decode(opcode);
+        // instruction(&mut self);
     }
 }
