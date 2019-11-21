@@ -1,0 +1,7 @@
+[package]
+name = "avr-emulator"
+version = "0.1.0"
+authors = ["Kazuki Yoshida <kazukiyoshida19920602@gmail.com>"]
+edition = "2018"
+
+[dependencies]
