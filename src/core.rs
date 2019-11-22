@@ -1,4 +1,5 @@
 use super::memory::{ProgramMemory, DataMemory, StatusRegister, Registers, IORegisters};
+use super::instructions::opcode;
 
 #[derive(Debug)]
 pub struct Core {
@@ -9,6 +10,7 @@ pub struct Core {
     pub sram: DataMemory,
     pub sp: u8,
     pub pc: u8,
+    pub cycles: u32,
 }
 
 impl Core {
@@ -21,14 +23,20 @@ impl Core {
             ioregs: IORegisters::new(),
             pc: 0,
             sp: 0,
+            cycles: 0,
         }
     }
 
     pub fn next(&mut self) {
         println!("pc: {:#04x}", self.pc);
-        let opcode = self.mem.get(self.pc as u16);
-        println!("mem[pc] : {:#018b}", opcode);
-        // let instruction = decode(opcode);
-        // instruction(&mut self);
+        println!(" └─> mem: {:#018b}", self.mem.get(self.pc as u16));
+        match opcode::decode(self.word()) {
+            Some(instruction) => instruction(self),
+            _ => (),
+        }
+    }
+
+    pub fn word(&self) -> u16 {
+        self.mem.get(self.pc as u16)
     }
 }
