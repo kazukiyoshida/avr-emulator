@@ -4,15 +4,30 @@ use avr_emulator::core::Core;
 fn main() {
     let mut core = Core::new();
 
-    // 実験用にメモリ0番地にプログラムをセット
-    // adc:  0b0001110011110000
-    // add:  0b0000110011110000
-    // andi: 0b0111110011110000
-    core.mem.set(0, 0b0000110011110000);
-    core.regs.data[0] = 0b1000;
-    core.regs.data[15] = 0b11;
+    println!("--- load hex file ---");
+    core.load_hex("src/bin/sample.hex");
+    println!("Mem");
+    println!("{}", core.mem);
 
-    println!("|||| core |||| {:?}", core);
+    println!("--- start ---");
+
+    println!("|||| core ||||");
+    println!("Registers: {:?}", core.regs);
+    println!("StatusRegister: {:?}", core.sreg);
     core.next();
-    println!("|||| core |||| {:?}", core);
+    println!("|||| core ||||");
+    println!("Registers: {:?}", core.regs);
+    println!("StatusRegister: {:?}", core.sreg);
+    core.next();
+    println!("|||| core ||||");
+    println!("Registers: {:?}", core.regs);
+    println!("StatusRegister: {:?}", core.sreg);
+    core.next();
+    println!("|||| core ||||");
+    println!("Registers: {:?}", core.regs);
+    println!("StatusRegister: {:?}", core.sreg);
+    core.next();
+    println!("|||| core ||||");
+    println!("Registers: {:?}", core.regs);
+    println!("StatusRegister: {:?}", core.sreg);
 }

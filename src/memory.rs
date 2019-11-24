@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Flash Program Memory
 /// ・ATmega328P contains 32 KB On-chip In-System Reprogrammable Flash memory
 ///   for program storage.
@@ -21,7 +23,17 @@ impl ProgramMemory {
     pub fn set(&mut self, i: u16, v: u16) {
         self.data[usize::from(i)] = v
     }
+}
 
+impl fmt::Display for ProgramMemory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut index = 0;
+        for d in &self.data {
+            write!(f, "{:#04x} --> {:08b} = {:02x} \n", index, d, d);
+            index += 1;
+        }
+        Ok(())
+    }
 }
 
 /// SRAM Data Memory

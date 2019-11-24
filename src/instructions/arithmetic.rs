@@ -8,7 +8,6 @@ pub fn adc(core: &mut Core) {
     assert!(r <= 31 && d <= 31);
     core.regs.data[r as usize] =
         core.regs.data[r as usize] + core.regs.data[d as usize];
-    rr = rr + rd;
     core.pc += 1;
     core.cycles += 1;
 }
