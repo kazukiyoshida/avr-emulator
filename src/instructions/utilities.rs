@@ -25,3 +25,20 @@ pub fn operand_r5d5(word: u16) -> (u16, u16) {
     (get_bits(word, 0b0000001000001111),
      get_bits(word, 0b0000000111110000))
 }
+
+pub fn operand_K8d4(word: u16) -> (u8, u8) {
+    (get_bits(word, 0b0000111100001111) as u8, // K
+     get_bits(word, 0b0000000011110000) as u8) // d
+}
+
+pub fn operand_A6r5(word: u16) -> (u8, u8) {
+    (get_bits(word, 0b0000_0110_0000_1111) as u8, // A
+     get_bits(word, 0b0000_0001_1111_0000) as u8) // r
+}
+
+pub fn operand_to_mem_index(i: u8) -> usize {
+    let n = i + 16;
+    assert!(16 <= n && n <= 31);
+    n as usize
+}
+

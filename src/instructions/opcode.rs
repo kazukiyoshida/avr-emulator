@@ -1,15 +1,24 @@
-use super::arithmetic;
 use super::super::core::Core;
+use super::{
+    arithmetic,
+    branch,
+    data_transfer,
+};
 
 #[derive(Debug)]
 struct Opcode(&'static str);
 
-const AVR_OPCODES: [( Opcode, fn(&mut Core) -> ()); 5] = [
+const AVR_OPCODES: [( Opcode, fn(&mut Core) -> ()); 10] = [
     (Opcode("000111rdddddrrrr"), arithmetic::adc),
     (Opcode("000011rdddddrrrr"), arithmetic::add),
     (Opcode("10010110KKddKKKK"), arithmetic::adiw),
     (Opcode("001000rdddddrrrr"), arithmetic::and),
     (Opcode("0111KKKKddddKKKK"), arithmetic::andi),
+    (Opcode("1001010ddddd1010"), arithmetic::dec),
+    (Opcode("1110KKKKddddKKKK"), data_transfer::ldi),
+    (Opcode("10111AArrrrrAAAA"), data_transfer::out),
+    (Opcode("1101kkkkkkkkkkkk"), branch::rcall),
+    (Opcode("111101kkkkkkk001"), branch::brne),
 ];
 
 impl Opcode {

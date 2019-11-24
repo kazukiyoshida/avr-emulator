@@ -35,6 +35,13 @@ pub fn and(core: &mut Core) {
     println!("and");
 }
 
+/// DEC - Decrement
+pub fn dec(core: &mut Core) {
+    println!("dec");
+    core.pc += 1;
+    core.cycles += 1;
+}
+
 // pub fn add(core: &mut Core) {
 //     println!("add");
 //

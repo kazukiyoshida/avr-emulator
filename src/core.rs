@@ -31,10 +31,11 @@ impl Core {
 
     pub fn next(&mut self) {
         println!("pc: {:#04x}", self.pc);
-        println!(" └─> mem: {:#018b}", self.mem.get(self.pc as u16));
+        println!(" └─> mem: {:#018b} \n", self.mem.get(self.pc as u16));
+
         match opcode::decode(self.word()) {
+            None => panic!("failed to decode instruction: {:016b}", self.word()),
             Some(instruction) => instruction(self),
-            _ => (),
         }
     }
 
@@ -60,10 +61,12 @@ impl Core {
         {
             let line = line.expect("Unable to read line");
             let data = &line[9..line.len()-2];
-            for d in data.chars().collect::<Vec<char>>().chunks(2) {
+            for d in data.chars().collect::<Vec<char>>().chunks(4) {
                 let a = d[0].to_digit(16).unwrap();
                 let b = d[1].to_digit(16).unwrap();
-                self.mem.set(i, ( a << 4 | b ) as u16);
+                let c = d[2].to_digit(16).unwrap();
+                let d = d[3].to_digit(16).unwrap();
+                self.mem.set(i, ( c << 12 | d << 8 | a << 4 | b ) as u16);
                 i += 1;
             }
         }

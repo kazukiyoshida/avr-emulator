@@ -29,7 +29,7 @@ impl fmt::Display for ProgramMemory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut index = 0;
         for d in &self.data {
-            write!(f, "{:#04x} --> {:08b} = {:02x} \n", index, d, d);
+            write!(f, "{:#04x} --> {:016b} = {:04x} \n", index, d, d);
             index += 1;
         }
         Ok(())

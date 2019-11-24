@@ -10,24 +10,12 @@ fn main() {
     println!("{}", core.mem);
 
     println!("--- start ---");
-
-    println!("|||| core ||||");
-    println!("Registers: {:?}", core.regs);
-    println!("StatusRegister: {:?}", core.sreg);
-    core.next();
-    println!("|||| core ||||");
-    println!("Registers: {:?}", core.regs);
-    println!("StatusRegister: {:?}", core.sreg);
-    core.next();
-    println!("|||| core ||||");
-    println!("Registers: {:?}", core.regs);
-    println!("StatusRegister: {:?}", core.sreg);
-    core.next();
-    println!("|||| core ||||");
-    println!("Registers: {:?}", core.regs);
-    println!("StatusRegister: {:?}", core.sreg);
-    core.next();
-    println!("|||| core ||||");
-    println!("Registers: {:?}", core.regs);
-    println!("StatusRegister: {:?}", core.sreg);
+    loop {
+        println!("\n|||| core ||||");
+        println!("Cycles: {:?}", core.cycles);
+        println!("SP: {:?}", core.sp);
+        println!("Registers: {:?}", core.regs);
+        println!("StatusRegister: {:?}", core.sreg);
+        core.next();
+    }
 }
