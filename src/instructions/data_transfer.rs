@@ -7,10 +7,11 @@ use super::utilities::{
 
 /// LDI – Load Immediate
 pub fn ldi(core: &mut Core) {
-    println!("ldi");
     let (k, d) = operand_K8d4(core.word());
+    let d = d + 16; // オフセットが謎に存在する..
+    println!("ldi R{} <- {}", d, k);
     assert!(k <= 255);
-    core.regs.data[operand_to_mem_index(d)] = k;
+    core.regs()[d as usize] = k;
     core.pc += 1;
     core.cycles += 1;
 }
@@ -19,9 +20,8 @@ pub fn ldi(core: &mut Core) {
 pub fn out(core: &mut Core) {
     let (a, r) = operand_A6r5(core.word());
     println!("out {:x} = {} <- R{}", a, a, r);
-    if a == 0x3d { // 0x3d はレジスタマップ上の SP を指す
-        core.sp = core.regs.data[r as usize];
-    }
+    let d = core.regs()[r as usize];
+    core.sram.set(a, d);
     core.pc += 1;
     core.cycles += 1;
 }

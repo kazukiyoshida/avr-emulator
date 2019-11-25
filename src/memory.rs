@@ -1,4 +1,5 @@
 use std::fmt;
+use std::collections::HashMap;
 
 /// Flash Program Memory
 /// ・ATmega328P contains 32 KB On-chip In-System Reprogrammable Flash memory
@@ -42,57 +43,47 @@ impl fmt::Display for ProgramMemory {
 #[derive(Debug)]
 pub struct DataMemory {
     pub data: Vec<u8>,
+    register_map: HashMap<u8, usize>,
 }
 
 impl DataMemory {
-    pub fn new(size: usize) -> Self {
-        Self { data: vec![0; size] }
-    }
-}
-
-/// Status Register
-#[derive(Default, Debug)]
-pub struct StatusRegister {
-    I: bool,
-    T: bool,
-    H: bool,
-    S: bool,
-    V: bool,
-    N: bool,
-    Z: bool,
-    C: bool,
-}
-
-/// General Purpose Register File
-#[derive(Debug)]
-pub struct Registers {
-    pub data: Vec<u8>,
-}
-
-impl Registers {
     pub fn new() -> Self {
-        Self { data: vec![0; 32] }
+        let mut register_map = HashMap::new();
+        register_map.insert(0x3d, 32);  // SP
+
+        Self {
+            data: vec![0; 40],
+            register_map: register_map,
+        }
+    }
+
+    // i は機械語のままで受け取り、内部的に並びを変える
+    pub fn get(&self, i: u8) -> Option<u8> {
+        // WIP
+        // 特殊レジスタ
+        if i >= 0x3D {
+            return match self.register_map.get(&i) {
+                None => None,
+                Some(i) => Some(self.data[*i as usize]),
+            }
+        // 汎用レジスタ
+        } else if i <= 31 {
+            return Some(self.data[i as usize])
+        };
+        None
+    }
+
+    pub fn set(&mut self, i: u8, v: u8) {
+        // WIP
+        // 特殊レジスタ
+        if i >= 0x3D {
+            match self.register_map.get(&i) {
+                None => panic!("canot find set space"),
+                Some(i) => self.data[*i as usize] = v,
+            };
+        // 汎用レジスタ
+        } else if i <= 31 {
+            self.data[i as usize] = v;
+        }
     }
 }
-
-/// I/O Registers
-#[derive(Debug)]
-pub struct IORegisters {
-    pub data: Vec<u8>,
-}
-
-impl IORegisters {
-    pub fn new() -> Self {
-        Self { data: vec![0; 16] }
-    }
-}
-
-/// Stack Pointer
-/// Stack is implemented as growing from figher to lower memory locations.
-/// The Stack Pointer always points to the top of the Stack.
-#[derive(Default, Debug)]
-pub struct StackPointer(pub u8);
-
-/// Program Counter
-#[derive(Default, Debug)]
-pub struct ProgramCounter(pub u8);

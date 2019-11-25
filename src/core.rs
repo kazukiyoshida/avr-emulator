@@ -1,32 +1,40 @@
 use std::fs::File;
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use super::memory::{ProgramMemory, DataMemory, StatusRegister, Registers, IORegisters};
+use super::memory::{ProgramMemory, DataMemory};
 use super::instructions::opcode;
 
 #[derive(Debug)]
 pub struct Core {
-    pub regs: Registers,
-    pub ioregs: IORegisters,
-    pub sreg: StatusRegister,
     pub mem: ProgramMemory,
     pub sram: DataMemory,
-    pub sp: u8,
-    pub pc: u8,
+    pub pc: u16,
     pub cycles: u32,
 }
 
 impl Core {
     pub fn new() -> Self {
         Self {
-            regs: Registers::new(),
-            sram: DataMemory::new(8),
+            sram: DataMemory::new(),
             mem: ProgramMemory::new(100),
-            sreg: StatusRegister::default(),
-            ioregs: IORegisters::new(),
             pc: 0,
-            sp: 0,
             cycles: 0,
         }
+    }
+
+    /// Stack Pointer
+    pub fn sp(&mut self) -> &mut u8 {
+        &mut self.sram.data[32]
+    }
+
+    /// Register File（R0 ~ R31）
+    pub fn regs(&mut self) -> &mut [u8] {
+        &mut self.sram.data[0..32]
+    }
+
+    /// Status Register
+    pub fn sreg(&mut self) -> &mut u8 {
+        &mut self.sram.data[33]
     }
 
     pub fn next(&mut self) {

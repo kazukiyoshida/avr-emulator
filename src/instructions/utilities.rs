@@ -36,6 +36,19 @@ pub fn operand_A6r5(word: u16) -> (u8, u8) {
      get_bits(word, 0b0000_0001_1111_0000) as u8) // r
 }
 
+pub fn operand_k12(word: u16) -> u16 {
+    get_bits(word, 0b0000_1111_1111_1111)
+}
+
+pub fn operand_d5(word: u16) -> u16 {
+    get_bits(word, 0b0000_0001_1111_0000)
+}
+
+pub fn operand_k7(word: u16) -> i8 {
+    let n = get_bits(word, 0b0000_0011_1111_1000);
+    -1 * ( 0b1000_0000 - n ) as i8
+}
+
 pub fn operand_to_mem_index(i: u8) -> usize {
     let n = i + 16;
     assert!(16 <= n && n <= 31);
