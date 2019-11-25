@@ -3,12 +3,13 @@ use super::{
     arithmetic,
     branch,
     data_transfer,
+    mcu_control,
 };
 
 #[derive(Debug)]
 struct Opcode(&'static str);
 
-const AVR_OPCODES: [( Opcode, fn(&mut Core) -> ()); 10] = [
+const AVR_OPCODES: [( Opcode, fn(&mut Core) -> ()); 11] = [
     (Opcode("000111rdddddrrrr"), arithmetic::adc),
     (Opcode("000011rdddddrrrr"), arithmetic::add),
     (Opcode("10010110KKddKKKK"), arithmetic::adiw),
@@ -19,6 +20,7 @@ const AVR_OPCODES: [( Opcode, fn(&mut Core) -> ()); 10] = [
     (Opcode("10111AArrrrrAAAA"), data_transfer::out),
     (Opcode("1101kkkkkkkkkkkk"), branch::rcall),
     (Opcode("111101kkkkkkk001"), branch::brne),
+    (Opcode("0000000000000000"), mcu_control::nop),
 ];
 
 impl Opcode {
