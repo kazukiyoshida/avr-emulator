@@ -2,7 +2,7 @@
 
 # AVR Emulator
 
-Rust で書く AVR マイクロコントローラのエミュレータです.
+Rust で書く AVR マイクロコントローラのエミュレータです.  
 AVR 命令セットと ATmega328P のメモリマップを実装しています。
 
 ## Install & Setup
