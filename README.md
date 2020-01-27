@@ -18,3 +18,9 @@ $ cargo run --bin core
 ```sh
 $ just
 ```
+
+テストの実行
+```sh
+$ cargo test // 標準出力なし
+$ cargo test -- --nocapture // 標準出力あり
+```
