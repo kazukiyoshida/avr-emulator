@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use super::avr::*;
 use super::utils::*;
 
@@ -15,7 +14,7 @@ pub struct InstructionCode(pub Instruction, pub u16, pub u16);
 
 // Instruction Object is created here, and in application, every instruction instance is
 // reffered this object.
-const INSTRUCTION_CODE_MAP: [InstructionCode; 2] = [
+const INSTRUCTION_CODE_LIST: [InstructionCode; 2] = [
     InstructionCode(Instruction::ADC, 0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
     InstructionCode(Instruction::ADC, 0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
 ];
@@ -25,7 +24,7 @@ pub fn is_bit_match(w: Word, code: u16, mask: u16) -> bool {
 }
 
 pub fn decode_instruction(w: Word) -> Option<&'static Instruction> {
-    for InstructionCode(instruction, code, mask) in &INSTRUCTION_CODE_MAP {
+    for InstructionCode(instruction, code, mask) in &INSTRUCTION_CODE_LIST {
         if is_bit_match(w, *code, *mask) {
             return Some(instruction)
         }
