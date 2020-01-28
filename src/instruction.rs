@@ -11,12 +11,26 @@ pub enum Instruction {
     RCALL,
 }
 
-// (code, mask) // if ( word & mask ) == code then ..
-// pub type instruction_code = (u16, u16);
-// ADC = ( 0b0001_1100_0000_0000, 0b1111_1100_0000_0000 )
+pub struct InstructionCode(pub Instruction, pub u16, pub u16);
 
-pub fn decode_instruction(w: u16) -> Option<Instruction> {
-    Some(Instruction::ADC)
+// Instruction Object is created here, and in application, every instruction instance is
+// reffered this object.
+const INSTRUCTION_CODE_MAP: [InstructionCode; 2] = [
+    InstructionCode(Instruction::ADC, 0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
+    InstructionCode(Instruction::ADC, 0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
+];
+
+pub fn is_bit_match(w: Word, code: u16, mask: u16) -> bool {
+    true
+}
+
+pub fn decode_instruction(w: Word) -> Option<&'static Instruction> {
+    for InstructionCode(instruction, code, mask) in &INSTRUCTION_CODE_MAP {
+        if is_bit_match(w, *code, *mask) {
+            return Some(instruction)
+        }
+    }
+    None
 }
 
 pub fn exec<T: AVR>(i: Instruction, avr: &mut T, w: Word) {
