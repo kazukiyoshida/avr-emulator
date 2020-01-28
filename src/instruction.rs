@@ -1,44 +1,83 @@
+use std::collections::HashMap;
+use itertools::izip;
+use lazy_static::lazy_static;
 use super::avr::*;
 use super::utils::*;
 
 
-#[derive(Eq, PartialEq, Hash)]
-pub enum Instruction {
-    ADC,
-    LDI, OUT,
-    NOP,
-    RCALL,
+#[derive(Eq, PartialEq, Hash, Debug)]
+pub enum Instr {
+    ADC,         //
+    LDI, OUT,    //
+    NOP,         //
+    RCALL,       //
 }
 
-pub struct InstructionCode(pub Instruction, pub u16, pub u16);
+pub struct Opcode(pub u16, pub u16);
 
-// Instruction Object is created here, and in application, every instruction instance is
-// reffered this object.
-const INSTRUCTION_CODE_LIST: [InstructionCode; 2] = [
-    InstructionCode(Instruction::ADC, 0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
-    InstructionCode(Instruction::ADC, 0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
-];
+lazy_static! {
+    static ref OPCODE_MAP: HashMap<Instr, Opcode> = {
+        let mut m = HashMap::new();
+        m.insert(Instr::ADC,   Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000));
+        m.insert(Instr::LDI,   Opcode(0b1110_0000_0000_0000, 0b1111_0000_0000_0000));
+        m.insert(Instr::OUT,   Opcode(0b1011_1000_0000_0000, 0b1111_1000_0000_0000));
+        m.insert(Instr::NOP,   Opcode(0b0000_0000_0000_0000, 0b1111_1111_1111_1111));
+        m.insert(Instr::RCALL, Opcode(0b1101_0000_0000_0000, 0b1111_0000_0000_0000));
+        m
+    };
+}
 
-pub fn is_bit_match(w: Word, code: u16, mask: u16) -> bool {
+pub fn is_decoded(word: Word, code: &Opcode) -> bool {
+    for (w, c, m) in izip!(word, Word(code.0), Word(code.1)) {
+        if m && ( w != c ) {
+            return false
+        }
+    }
     true
 }
 
-pub fn decode_instruction(w: Word) -> Option<&'static Instruction> {
-    for InstructionCode(instruction, code, mask) in &INSTRUCTION_CODE_LIST {
-        if is_bit_match(w, *code, *mask) {
-            return Some(instruction)
+#[test]
+pub fn test_is_decoded() {
+    assert_eq!(
+        true,
+        is_decoded(
+            Word(0b0001_1100_0000_0000),
+            &Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000)
+        )
+    );
+    assert_eq!(
+        false,
+        is_decoded(
+            Word(0b0011_1100_0000_0000),
+            &Opcode(0b0001_1100_0000_0000,0b1111_1100_0000_0000)
+        )
+    );
+}
+
+pub fn decode_instr(w: Word) -> Option<&'static Instr> {
+    for (instr, code) in OPCODE_MAP.iter() {
+        if is_decoded(w, code) {
+            return Some(instr)
         }
     }
     None
 }
 
-pub fn exec<T: AVR>(i: Instruction, avr: &mut T, w: Word) {
+#[test]
+pub fn test_decode_instr() {
+    assert_eq!(Some(&Instr::ADC), decode_instr(Word(0b0001_1100_0111_0101)));
+    assert_eq!(Some(&Instr::OUT), decode_instr(Word(0b1011_1110_0111_0101)));
+    assert_eq!(Some(&Instr::NOP), decode_instr(Word(0b0000_0000_0000_0000)));
+    assert_eq!(None,              decode_instr(Word(0b1111_1111_1111_1111)));
+}
+
+pub fn exec<T: AVR>(i: &Instr, avr: &mut T, w: Word) {
     match i {
-        Instruction::ADC   => adc(avr, w),
-        Instruction::LDI   => ldi(avr, w),
-        Instruction::OUT   => out(avr, w),
-        Instruction::NOP   => nop(avr, w),
-        Instruction::RCALL => rcall(avr, w),
+        &Instr::ADC   => adc(avr, w),
+        &Instr::LDI   => ldi(avr, w),
+        &Instr::OUT   => out(avr, w),
+        &Instr::NOP   => nop(avr, w),
+        &Instr::RCALL => rcall(avr, w),
     };
 }
 
