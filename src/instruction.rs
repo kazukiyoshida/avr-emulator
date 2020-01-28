@@ -19,7 +19,7 @@ pub fn decode_instruction(w: u16) -> Option<Instruction> {
     Some(Instruction::ADC)
 }
 
-pub fn exec<T: AVR>(i: Instruction, avr: &mut T, w: u16) {
+pub fn exec<T: AVR>(i: Instruction, avr: &mut T, w: Word) {
     match i {
         Instruction::ADC   => adc(avr, w),
         Instruction::LDI   => ldi(avr, w),
@@ -29,28 +29,28 @@ pub fn exec<T: AVR>(i: Instruction, avr: &mut T, w: u16) {
     };
 }
 
-pub fn adc<T: AVR>(avr: &mut T, word: u16) {
-    let (r_addr, d_addr) = operand55(word);
+pub fn adc<T: AVR>(avr: &mut T, w: Word) {
+    let (r_addr, d_addr) = operand55(w);
     let r = avr.gprg(r_addr as usize);
     let d = avr.gprg(d_addr as usize);
     avr.set_gprg(r_addr as usize, r+d);
 }
 
-pub fn ldi<T: AVR>(avr: &mut T, word: u16) {
-    let (k, d_addr) = operand84(word);
+pub fn ldi<T: AVR>(avr: &mut T, w: Word) {
+    let (k, d_addr) = operand84(w);
     avr.set_gprg(d_addr as usize + 16, k);
 }
 
-pub fn out<T: AVR>(avr: &mut T, word: u16) {
-    let (a, r) = operand65(word);
+pub fn out<T: AVR>(avr: &mut T, w: Word) {
+    let (a, r) = operand65(w);
     avr.set_gprg(a as usize, r);
 }
 
-pub fn nop<T: AVR>(_: &mut T, _: u16) {
+pub fn nop<T: AVR>(_: &mut T, _: Word) {
 }
 
-pub fn rcall<T: AVR>(avr: &mut T, word: u16) {
-    let k = operand12(word);
+pub fn rcall<T: AVR>(avr: &mut T, w: Word) {
+    let k = operand12(w);
     let pc = avr.pc();
     avr.set_pc(pc+k+1);
 }
