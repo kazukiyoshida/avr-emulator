@@ -11,11 +11,14 @@ pub trait AVR {
     // General Purpose Register
     fn gprg(&self, addr: usize) -> u8;
     fn set_gprg(&mut self, addr: usize, v: u8);
+
+    fn fetch(&self) -> Word;
+    fn word(&self) -> Word;
+    fn double_word(&self) -> (Word, Word);
 }
 
 pub enum Sreg { I, T, H, S, V, N, Z, C }
 
-// 8bit, 16bit のメモリ
 pub trait Memory<T> {
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
@@ -65,11 +68,7 @@ impl Iterator for WordIter {
 
 #[test]
 fn test_u8_word() {
-    let w = Word(0b01001100_11001100);
-    for b in w.into_iter() {
-        println!("{}", b);
-    }
-    let w1 = Word(0b00001111_11110000);
-    println!("{:08b}", w1.top());
-    println!("{:08b}", w1.low());
+    let w = Word(0b00001111_11110000);
+    assert_eq!(0b00001111, w.top());
+    assert_eq!(0b11110000, w.low());
 }

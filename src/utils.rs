@@ -19,6 +19,10 @@ pub fn operand12(w: Word) -> u16 {
     operand(w.0, 0b0000_1111_1111_1111)
 }
 
+pub fn operand22(w1: Word, w2: Word) -> u32 {
+    ( ( operand(w1.0, 0b0000_0001_1111_0001) as u32 ) << 16 ) | w2.0 as u32
+}
+
 fn operand(word: u16, mask: u16) -> u16 {
     let mut k = 0;
     Word(word)

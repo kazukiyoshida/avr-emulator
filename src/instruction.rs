@@ -11,6 +11,7 @@ pub enum Instr {
     LDI, OUT,    //
     NOP,         //
     RCALL,       //
+    JMP,
 }
 
 pub struct Opcode(pub u16, pub u16);
@@ -23,13 +24,14 @@ lazy_static! {
         m.insert(Instr::OUT,   Opcode(0b1011_1000_0000_0000, 0b1111_1000_0000_0000));
         m.insert(Instr::NOP,   Opcode(0b0000_0000_0000_0000, 0b1111_1111_1111_1111));
         m.insert(Instr::RCALL, Opcode(0b1101_0000_0000_0000, 0b1111_0000_0000_0000));
+        m.insert(Instr::JMP,   Opcode(0b1001_0100_0000_1100, 0b1111_1110_0000_1110));
         m
     };
 }
 
 pub fn is_decoded(word: Word, code: &Opcode) -> bool {
-    for (w, c, m) in izip!(word, Word(code.0), Word(code.1)) {
-        if m && ( w != c ) {
+    for (word_bit, code_bit, mask_bit) in izip!(word, Word(code.0), Word(code.1)) {
+        if mask_bit && ( word_bit != code_bit ) {
             return false
         }
     }
@@ -71,39 +73,51 @@ pub fn test_decode_instr() {
     assert_eq!(None,              decode_instr(Word(0b1111_1111_1111_1111)));
 }
 
-pub fn exec<T: AVR>(i: &Instr, avr: &mut T, w: Word) {
+pub fn exec<T: AVR>(i: &Instr, avr: &mut T) {
+    println!("||| ^-- instruction : {:?}", i);
     match i {
-        &Instr::ADC   => adc(avr, w),
-        &Instr::LDI   => ldi(avr, w),
-        &Instr::OUT   => out(avr, w),
-        &Instr::NOP   => nop(avr, w),
-        &Instr::RCALL => rcall(avr, w),
+        &Instr::ADC   => adc(avr),
+        &Instr::LDI   => ldi(avr),
+        &Instr::OUT   => out(avr),
+        &Instr::NOP   => nop(avr),
+        &Instr::RCALL => rcall(avr),
+        &Instr::JMP   => jmp(avr),
     };
 }
 
-pub fn adc<T: AVR>(avr: &mut T, w: Word) {
+pub fn adc<T: AVR>(avr: &mut T) {
+    let w = avr.word();
     let (r_addr, d_addr) = operand55(w);
     let r = avr.gprg(r_addr as usize);
     let d = avr.gprg(d_addr as usize);
     avr.set_gprg(r_addr as usize, r+d);
 }
 
-pub fn ldi<T: AVR>(avr: &mut T, w: Word) {
+pub fn ldi<T: AVR>(avr: &mut T) {
+    let w = avr.word();
     let (k, d_addr) = operand84(w);
     avr.set_gprg(d_addr as usize + 16, k);
 }
 
-pub fn out<T: AVR>(avr: &mut T, w: Word) {
+pub fn out<T: AVR>(avr: &mut T) {
+    let w = avr.word();
     let (a, r) = operand65(w);
     avr.set_gprg(a as usize, r);
 }
 
-pub fn nop<T: AVR>(_: &mut T, _: Word) {
+pub fn nop<T: AVR>(_: &mut T) {
 }
 
-pub fn rcall<T: AVR>(avr: &mut T, w: Word) {
+pub fn rcall<T: AVR>(avr: &mut T) {
+    let w = avr.word();
     let k = operand12(w);
     let pc = avr.pc();
     avr.set_pc(pc+k+1);
+}
+
+pub fn jmp<T: AVR>(avr: &mut T) {
+    let (w1, w2) = avr.double_word();
+    let k = operand22(w1, w2);
+    avr.set_pc(k)
 }
 
