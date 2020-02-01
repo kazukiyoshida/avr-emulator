@@ -141,13 +141,47 @@ impl ATmega328P {
 fn test_atmega328p() {
     let mut avr = ATmega328P::new();
     avr.load_hex("sample/led_flashing/led_flashing.ino.standard.hex");
-    let w = avr.fetch();
-    println!("||| w = {:016b}", w.0);
 
-    let instr = decode_instr(w);
-    match instr {
-        Some(i) => exec(i, &mut avr),
-        None    => println!("!!!!!!!!! panic !!!!!!!"),
+    for _ in 0..200 {
+        let w = avr.word();
+        println!("\n||| PC = {:x} = {} ( PC on hexfile = {:x} = {})", avr.pc(), avr.pc(), avr.pc()*2, avr.pc()*2);
+        println!("|||  w = {:016b}", w.0);
+
+        println!("|||");
+
+        if avr.sp() < RAMEND-3 { 
+        println!("|||                | {:#x} |", avr.gprg((avr.sp()+4u16) as usize));
+        } else if avr.sp() == RAMEND-3 {
+        println!("|||                |-------|");
+        }
+
+        if avr.sp() < RAMEND-2 { 
+        println!("|||                | {:#x} |", avr.gprg((avr.sp()+3u16) as usize));
+        } else if avr.sp() == RAMEND-2 {
+        println!("|||                |-------|");
+        }
+
+        if avr.sp() < RAMEND-1 { 
+        println!("|||                | {:#x} |", avr.gprg((avr.sp()+2u16) as usize));
+        } else if avr.sp() == RAMEND-1 {
+        println!("|||                |-------|");
+        }
+
+        if avr.sp() < RAMEND { 
+        println!("|||                | {:#x} |", avr.gprg((avr.sp()+1u16) as usize));
+        } else if avr.sp() == RAMEND {
+        println!("|||                |-------|");
+        }
+
+        println!("|||  sp = {:#x} -> | {:#x} |", avr.sp(), avr.gprg(avr.sp() as usize));
+        println!("|||                | {:#x} |", avr.gprg((avr.sp()-1u16) as usize));
+        println!("|||");
+
+        let instr = decode_instr(w);
+        match instr {
+            Some(i) => avr.exec(i),
+            None    => println!("!!!!!!!!! panic !!!!!!!"),
+        }
     }
 }
 
