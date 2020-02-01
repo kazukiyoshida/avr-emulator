@@ -216,17 +216,15 @@ impl Memory<u8> for SRAM {
 impl SRAM {
     fn new() -> SRAM { SRAM([0; SRAM_SIZE]) }
 
-    fn get_word(&self, a: usize) -> u16 {
-        0
-    }
-
-    fn set_word(&self, a: usize, v: u16) {
+    fn set_word(&mut self, a: usize, v: u16) {
+        self.set(a, low_bit(v));
+        self.set(a+1, high_bit(v));
     }
 }
 
 impl Memory<u8> for EEPROM {
     fn get(&self, a: usize) -> u8 {
-        0_u8
+        0u8
     }
     fn set(&mut self, a: usize, v: u8) {
         self.0[a] = v;

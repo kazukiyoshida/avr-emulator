@@ -83,11 +83,11 @@ pub trait Memory<T> {
 pub struct Word(pub u16);
 
 impl Word {
-    pub fn top(&self) -> u8 {
-        ( self.0 >> 8 ) as u8
+    pub fn high(&self) -> u8 {
+        high_bit(self.0)
     }
     pub fn low(&self) -> u8 {
-        ( self.0 & 0b11111111 ) as u8
+        low_bit(self.0)
     }
 }
 
@@ -124,6 +124,6 @@ impl Iterator for WordIter {
 #[test]
 fn test_u8_word() {
     let w = Word(0b00001111_11110000);
-    assert_eq!(0b00001111, w.top());
+    assert_eq!(0b00001111, w.high());
     assert_eq!(0b11110000, w.low());
 }
