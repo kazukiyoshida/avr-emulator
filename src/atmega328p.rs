@@ -2,39 +2,52 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use super::avr::*;
 use super::instruction::*;
+use super::utils::*;
 
 
 pub const GENERAL_PURPOSE_REGISTER_SIZE: usize = 32;
-pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB
-pub const SRAM_SIZE: usize         = 0x800;  // = 0d2048  = 2 KiB
-pub const EEPROM_SIZE: usize       = 0x400;  // = 0d1024  = 1 KiB
+pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB. 16bit(~0xffff)で表現可能.
+pub const SRAM_SIZE: usize = 0xffff;          // = 0d2048  = 2 KiB
+pub const EEPROM_SIZE: usize = 0x400;        // = 0d1024  = 1 KiB
+pub const STATUS_REGISTER: usize = 0x5f;
+pub const STACK_POINTER_H: usize = 0x5e;
+pub const STACK_POINTER_L: usize = 0x5d;
+pub const RAMEND: u16 = 0x08ff;
 
 
 pub struct ATmega328P {
-    // プログラムを保持するメモリ
     pub flash_memory: FlashMemory,
-
-    // 汎用レジスタ・IOレジスタ空間
     pub sram: SRAM,
-
     pub eeprom: EEPROM,
-
-    // Program Counter
-    // WIP: is this ok..?
-    pub pc: u16,
+    pub pc: u32,
 }
 
 impl AVR for ATmega328P {
-    fn pc(&self) -> u16 {
-        0
+    fn pc(&self) -> u32 {
+        self.pc
     }
 
-    fn set_pc(&mut self, v: u16) {
+    fn set_pc(&mut self, v: u32) {
         self.pc = v;
     }
 
     fn sp(&self) -> u16 {
-        0
+        concat(self.sram.get(STACK_POINTER_H), self.sram.get(STACK_POINTER_L))
+    }
+
+    fn push_stack(&mut self, v: u8) {
+        self.set_gprg(self.sp() as usize, v);
+        let new_sp = self.sp() - 1;
+        self.sram.set(STACK_POINTER_H, high_bit(new_sp));
+        self.sram.set(STACK_POINTER_L, low_bit(new_sp));
+    }
+
+    fn pop_stack(&mut self) -> u8 {
+        let v = self.gprg((self.sp()+1u16) as usize);
+        let new_sp = self.sp() + 1;
+        self.sram.set(STACK_POINTER_H, high_bit(new_sp));
+        self.sram.set(STACK_POINTER_L, low_bit(new_sp));
+        v
     }
 
     fn gprg(&self, addr: usize) -> u8 {
@@ -45,28 +58,54 @@ impl AVR for ATmega328P {
         self.sram.set(addr, v)
     }
 
-    fn fetch(&self) -> Word {
-        let b = self.flash_memory.get(self.pc() as usize);
-        Word(b)
+    fn xyz_reg_addresses(&self, x: XYZReg) -> (usize, usize) {
+        match x {
+            X => (27, 26),
+            Y => (29, 28),
+            Z => (31, 30),
+        }
     }
 
-    fn word(&self) -> Word {
-        Word(self.flash_memory.get(self.pc() as usize))
+    fn fetch(&self, p: u32) -> u16 {
+        self.flash_memory.get(p as usize)
     }
 
-    fn double_word(&self) -> (Word, Word)  {
-        (Word(self.flash_memory.get(self.pc() as usize)),
-         Word(self.flash_memory.get(self.pc() as usize +1 )))
+    fn status(&self, s: Sreg) -> bool {
+        bit(self.sram.0[STATUS_REGISTER], self.status_register_map(s))
+    }
+
+    fn set_status(&mut self, s: Sreg, v: bool) {
+        let n = self.status_register_map(s);
+        if v { 
+            self.sram.0[STATUS_REGISTER] = self.sram.0[STATUS_REGISTER] | ( 1 << n );
+        } else { 
+            self.sram.0[STATUS_REGISTER] = self.sram.0[STATUS_REGISTER] ^ ( 1 << n );
+        };
     }
 }
 
 impl ATmega328P {
     pub fn new() -> ATmega328P {
+        let mut sram = SRAM::new();
+        sram.set_word(STACK_POINTER_L, RAMEND);
         ATmega328P{
             flash_memory: FlashMemory::new(),
-            sram: SRAM::new(),
+            sram: sram,
             eeprom: EEPROM::new(),
             pc: 0,
+        }
+    }
+
+    pub fn status_register_map(&self, s: Sreg) -> u8 {
+        match s {
+            Sreg::I => 7,
+            Sreg::T => 6,
+            Sreg::H => 5,
+            Sreg::S => 4,
+            Sreg::V => 3,
+            Sreg::N => 2,
+            Sreg::Z => 1,
+            Sreg::C => 0,
         }
     }
 
