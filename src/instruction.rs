@@ -266,24 +266,24 @@ pub trait AVRInstruction: AVR {
 
     fn ld1(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.xyz_reg(XYZReg::X);
+        let x_addr = self.preg(Preg::X);
         self.set_gprg(d_addr, self.gprg(x_addr as usize));
         self.pc_increment();
     }
 
     fn ld2(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.xyz_reg(XYZReg::X);
+        let x_addr = self.preg(Preg::X);
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
-        self.set_xyz_reg(XYZReg::X, x_addr + 1u16);
+        self.set_preg(Preg::X, x_addr + 1u16);
         self.pc_increment();
     }
 
     fn ld3(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.xyz_reg(XYZReg::X) - 1u16;
-        self.set_xyz_reg(XYZReg::X, x_addr);
+        let x_addr = self.preg(Preg::X) - 1u16;
+        self.set_preg(Preg::X, x_addr);
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
         self.pc_increment();
@@ -360,38 +360,38 @@ pub trait AVRInstruction: AVR {
     }
 
     fn lpm1(&mut self) {
-        if ( self.xyz_reg(XYZReg::Z) & 1 ) == 1 {
-            self.set_gprg(0, high_bit(self.xyz_reg(XYZReg::Z)));
+        if ( self.preg(Preg::Z) & 1 ) == 1 {
+            self.set_gprg(0, high_bit(self.preg(Preg::Z)));
         } else {
-            self.set_gprg(0, low_bit(self.xyz_reg(XYZReg::Z)));
+            self.set_gprg(0, low_bit(self.preg(Preg::Z)));
         }
         self.pc_increment();
     }
 
     fn lpm2(&mut self) {
         let d_addr = self.word().operand5();
-        if ( self.xyz_reg(XYZReg::Z) & 1 ) == 1 {
-            self.set_gprg(d_addr, high_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
+        if ( self.preg(Preg::Z) & 1 ) == 1 {
+            self.set_gprg(d_addr, high_bit(self.fetch(self.preg(Preg::Z) as u32)));
         } else {
-            self.set_gprg(d_addr, low_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
+            self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
         }
         self.pc_increment();
     }
 
     fn lpm3(&mut self) {
         let d_addr = self.word().operand5();
-        if ( self.xyz_reg(XYZReg::Z) & 1 ) == 1 {
-            self.set_gprg(d_addr, high_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
+        if ( self.preg(Preg::Z) & 1 ) == 1 {
+            self.set_gprg(d_addr, high_bit(self.fetch(self.preg(Preg::Z) as u32)));
         } else {
-            self.set_gprg(d_addr, low_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
+            self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
         }
-        self.set_xyz_reg(XYZReg::Z, self.xyz_reg(XYZReg::Z)+1);
+        self.set_preg(Preg::Z, self.preg(Preg::Z)+1);
         self.pc_increment();
     }
 
     fn st1(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.xyz_reg(XYZReg::X);
+        let x_addr = self.preg(Preg::X);
         let d = self.gprg(d_addr);
         self.set_gprg(x_addr as usize, d);
         self.pc_increment();
@@ -399,18 +399,18 @@ pub trait AVRInstruction: AVR {
 
     fn st2(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.xyz_reg(XYZReg::X);
+        let x_addr = self.preg(Preg::X);
         let d = self.gprg(d_addr);
-        self.set_xyz_reg(XYZReg::X, x_addr + 1);
+        self.set_preg(Preg::X, x_addr + 1);
         self.set_gprg(x_addr as usize, d);
         self.pc_increment();
     }
 
     fn st3(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.xyz_reg(XYZReg::X) - 1;
+        let x_addr = self.preg(Preg::X) - 1;
         let d = self.gprg(d_addr);
-        self.set_xyz_reg(XYZReg::X, x_addr);
+        self.set_preg(Preg::X, x_addr);
         self.set_gprg(x_addr as usize, d);
         self.pc_increment();
     }

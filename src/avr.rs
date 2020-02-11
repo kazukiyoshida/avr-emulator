@@ -48,21 +48,21 @@ pub trait AVR {
         (self.gprg(addr1), self.gprg(addr2))
     }
 
-    fn xyz_reg_addresses(&self, x: XYZReg) -> (usize, usize) {
+    fn preg_addresses(&self, x: Preg) -> (usize, usize) {
         match x {
-            XYZReg::X => (27, 26),
-            XYZReg::Y => (29, 28),
-            XYZReg::Z => (31, 30),
+            Preg::X => (27, 26),
+            Preg::Y => (29, 28),
+            Preg::Z => (31, 30),
         }
     }
 
-    fn xyz_reg(&self, x: XYZReg) -> u16 {
-        let (h, l) = self.xyz_reg_addresses(x);
+    fn preg(&self, x: Preg) -> u16 {
+        let (h, l) = self.preg_addresses(x);
         concat(self.gprg(h), self.gprg(l))
     }
 
-    fn set_xyz_reg(&mut self, x: XYZReg, v: u16) {
-        let (h_addr, l_addr) = self.xyz_reg_addresses(x);
+    fn set_preg(&mut self, x: Preg, v: u16) {
+        let (h_addr, l_addr) = self.preg_addresses(x);
         self.set_gprg(h_addr, high_bit(v));
         self.set_gprg(l_addr, low_bit(v));
     }
@@ -123,9 +123,9 @@ Z Register:      {:#04x}
 Status Register: {:08b}"#,
             self.pc(), self.pc()*2,
             self.sp(),
-            self.xyz_reg(XYZReg::X),
-            self.xyz_reg(XYZReg::Y),
-            self.xyz_reg(XYZReg::Z),
+            self.preg(Preg::X),
+            self.preg(Preg::Y),
+            self.preg(Preg::Z),
             self.sreg(),
         );
         println!("{}", s);
@@ -135,8 +135,9 @@ Status Register: {:08b}"#,
 #[derive(Eq, PartialEq, Debug)]
 pub enum Sreg { I, T, H, S, V, N, Z, C }
 
+// Pointer Register
 #[derive(Eq, PartialEq, Debug)]
-pub enum XYZReg { X, Y, Z }
+pub enum Preg { X, Y, Z }
 
 pub trait Memory<T> {
     fn get(&self, a: usize) -> T;
