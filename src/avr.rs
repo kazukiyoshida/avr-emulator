@@ -68,6 +68,11 @@ pub trait AVR {
         self.set_gprg(l_addr, low_bit(v));
     }
 
+    // Cycle Counter
+    fn cycle(&self) -> u64;
+
+    fn cycle_increment(&mut self, v: u64);
+
     // Fetch 1 word from Program Memory.
     // Program Memory has ~0x8000 address, this is coverd by u16(~0xffff).
     fn fetch(&self, p: u32) -> u16;
@@ -119,13 +124,16 @@ X Register:      {:#04x}
 Y Register:      {:#04x}
 Z Register:      {:#04x}
 Status Register: {:08b}
-instruction:     {:?} ({:#04x}) "#,
+Cycle Counter:   {}
+instruction:     {:?} ({:#04x})
+"#,
             self.pc(), self.pc()*2,
             self.sp(),
             self.preg(Preg::X),
             self.preg(Preg::Y),
             self.preg(Preg::Z),
             self.sreg(),
+            self.cycle(),
             instruction,
             self.word().0,
         );

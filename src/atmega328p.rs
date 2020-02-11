@@ -18,6 +18,7 @@ pub struct ATmega328P {
     pub sram: SRAM,
     pub eeprom: EEPROM,
     pub pc: u32,
+    pub cycle: u64,
 }
 
 impl AVR for ATmega328P {
@@ -56,6 +57,14 @@ impl AVR for ATmega328P {
         self.sram.set(addr, v)
     }
 
+    fn cycle(&self) -> u64 {
+        self.cycle
+    }
+
+    fn cycle_increment(&mut self, v: u64) {
+        self.cycle += v;
+    }
+
     fn fetch(&self, p: u32) -> u16 {
         self.flash_memory.get(p as usize)
     }
@@ -90,6 +99,7 @@ impl ATmega328P {
             sram: sram,
             eeprom: EEPROM::new(),
             pc: 0,
+            cycle: 0,
         }
     }
 
