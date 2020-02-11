@@ -80,6 +80,7 @@ lazy_static! {
 }
 
 // WIP: Decode のアルゴリズムは Tree を使って高速化可能
+// cf. https://www.avrfreaks.net/comment/128264#comment-128264
 pub fn is_decoded(word: Word, code: &Opcode) -> bool {
     for (word_bit, code_bit, mask_bit) in izip!(word, Word(code.0), Word(code.1)) {
         if mask_bit && ( word_bit != code_bit ) {

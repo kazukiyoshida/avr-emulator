@@ -115,9 +115,7 @@ pub trait AVR {
     }
 
     fn view_processor_status(&self, instruction: &Instr) {
-        print!("\x1B[2J"); // clear console
-        println!(
-r#"
+        println!(r#"
 Program Counter: {:#08x} (Hexfile = {:x})
 Stack Pointer:   {:#04x}
 X Register:      {:#04x}
@@ -150,6 +148,7 @@ instruction:     {:?} ({:#04x})
                 i+3, self.gprg(i+3)
             );
         }
+        println!("");
     }
 
 }
@@ -168,9 +167,8 @@ where T: LowerHex
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
 
-    fn view_memory(&self, unit: u8, length: usize) {
-        print!("\x1B[2J"); // clear console
-        for i in 0..length {
+    fn view_memory(&self, unit: u8, from: usize, to: usize) {
+        for i in from..to {
             let i = i * 8;
             if unit == 2 {
                 println!(
@@ -190,5 +188,6 @@ where T: LowerHex
                 return
             };
         }
+        println!("");
     }
 }
