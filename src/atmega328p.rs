@@ -4,7 +4,6 @@ use super::avr::*;
 use super::instruction::*;
 use super::utils::*;
 
-
 pub const GENERAL_PURPOSE_REGISTER_SIZE: usize = 32;
 pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB. 16bit(~0xffff)で表現可能.
 pub const SRAM_SIZE: usize = 0x8ff;          // = 0d2048  = 2 KiB
@@ -13,7 +12,6 @@ pub const STATUS_REGISTER: usize = 0x5f;
 pub const STACK_POINTER_H: usize = 0x5e;
 pub const STACK_POINTER_L: usize = 0x5d;
 pub const RAMEND: u16 = 0x08ff;
-
 
 pub struct ATmega328P {
     pub flash_memory: FlashMemory,
@@ -130,24 +128,6 @@ impl ATmega328P {
                 self.flash_memory.set(memory_addr, ( c << 12 | d << 8 | a << 4 | b ) as u16);
                 memory_addr += 1;
             }
-        }
-    }
-}
-
-#[test]
-fn test_atmega328p() {
-    let mut avr = ATmega328P::new();
-    avr.load_hex("sample/set_pinmode/set_pinmode.ino.standard.hex");
-    // while ( avr.pc() as usize ) < FLASH_MEMORY_SIZE {
-    for _ in 0..28 {
-        let w = avr.word();
-        avr.view_processor_status();
-        match decode_instr(w) {
-            Some(i) => {
-                println!("word: {:#04x} -> {:?}", w.0, i);
-                avr.exec(i);
-            },
-            None    => process::exit(1),
         }
     }
 }

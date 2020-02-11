@@ -1,5 +1,6 @@
 use super::utils::*;
 use super::word::*;
+use super::instruction::*;
 
 pub trait AVR {
     // Program Counter
@@ -111,24 +112,28 @@ pub trait AVR {
         self.set_status(Sreg::S, s);
     }
 
-    fn view_processor_status(&self) {
-        let s = format!(
+    fn view_processor_status(&self, instruction: &Instr) {
+        print!("\x1B[2J"); // clear console
+        println!(
 r#"
 Program Counter: {:#08x} (Hexfile = {:x})
 Stack Pointer:   {:#04x}
 X Register:      {:#04x}
 Y Register:      {:#04x}
 Z Register:      {:#04x}
-Status Register: {:08b}"#,
+Status Register: {:08b}
+instruction:     {:?} ({:#04x}) "#,
             self.pc(), self.pc()*2,
             self.sp(),
             self.preg(Preg::X),
             self.preg(Preg::Y),
             self.preg(Preg::Z),
             self.sreg(),
+            instruction,
+            self.word().0,
         );
-        println!("{}", s);
     }
+
 }
 
 // Status Register
