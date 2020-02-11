@@ -1,0 +1,210 @@
+00000000 <.sec1>:
+	jmp	0xa4	;  0xa4
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xcc	;  0xcc
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	jmp	0xc8	;  0xc8
+	nop
+	nop
+	.word	0x0025	; ????
+	.word	0x0028	; ????
+	.word	0x002b	; ????
+	nop
+	nop
+	.word	0x0024	; ????
+	.word	0x0027	; ????
+	.word	0x002a	; ????
+	cpc	r0, r4
+	cpc	r0, r4
+	cpc	r0, r4
+	cpc	r0, r4
+	muls	r16, r18
+	muls	r16, r18
+	muls	r16, r18
+	mulsu	r16, r19
+	mulsu	r16, r19
+	mulsu	r16, r19
+	muls	r16, r17
+	sbc	r0, r4
+	and	r1, r0
+	ld	r4, Z
+	muls	r16, r17
+	sbc	r0, r4
+	and	r1, r0
+	muls	r16, r17
+	sbc	r0, r4
+	and	r1, r0
+	eor	r1, r1
+	out	0x3f, r1	; 63
+	ldi	r28, 0xFF	; 255
+	ldi	r29, 0x08	; 8
+	out	0x3e, r29	; 62
+	out	0x3d, r28	; 61
+	ldi	r18, 0x01	; 1
+	ldi	r26, 0x00	; 0
+	ldi	r27, 0x01	; 1
+	rjmp	.+2      	;  0xba
+	st	X+, r1
+	cpi	r26, 0x09	; 9
+	cpc	r27, r18
+	brne	.-8      	;  0xb8
+	call	0x160	;  0x160
+	jmp	0x22a	;  0x22a
+	jmp	0	;  0x0
+	push	r1
+	push	r0
+	in	r0, 0x3f	; 63
+	push	r0
+	eor	r1, r1
+	push	r18
+	push	r19
+	push	r24
+	push	r25
+	push	r26
+	push	r27
+	lds	r24, 0x0105	;  0x800105
+	lds	r25, 0x0106	;  0x800106
+	lds	r26, 0x0107	;  0x800107
+	lds	r27, 0x0108	;  0x800108
+	lds	r19, 0x0104	;  0x800104
+	ldi	r18, 0x03	; 3
+	add	r18, r19
+	cpi	r18, 0x7D	; 125
+	brcc	.+86     	;  0x154
+	adiw	r24, 0x01	; 1
+	adc	r26, r1
+	adc	r27, r1
+	sts	0x0104, r18	;  0x800104
+	sts	0x0105, r24	;  0x800105
+	sts	0x0106, r25	;  0x800106
+	sts	0x0107, r26	;  0x800107
+	sts	0x0108, r27	;  0x800108
+	lds	r24, 0x0100	;  0x800100
+	lds	r25, 0x0101	;  0x800101
+	lds	r26, 0x0102	;  0x800102
+	lds	r27, 0x0103	;  0x800103
+	adiw	r24, 0x01	; 1
+	adc	r26, r1
+	adc	r27, r1
+	sts	0x0100, r24	;  0x800100
+	sts	0x0101, r25	;  0x800101
+	sts	0x0102, r26	;  0x800102
+	sts	0x0103, r27	;  0x800103
+	pop	r27
+	pop	r26
+	pop	r25
+	pop	r24
+	pop	r19
+	pop	r18
+	pop	r0
+	out	0x3f, r0	; 63
+	pop	r0
+	pop	r1
+	reti
+	ldi	r18, 0x86	; 134
+	add	r18, r19
+	adiw	r24, 0x02	; 2
+	adc	r26, r1
+	adc	r27, r1
+	rjmp	.-92     	;  0x104
+	sei
+	in	r24, 0x24	; 36
+	ori	r24, 0x02	; 2
+	out	0x24, r24	; 36
+	in	r24, 0x24	; 36
+	ori	r24, 0x01	; 1
+	out	0x24, r24	; 36
+	in	r24, 0x25	; 37
+	ori	r24, 0x02	; 2
+	out	0x25, r24	; 37
+	in	r24, 0x25	; 37
+	ori	r24, 0x01	; 1
+	out	0x25, r24	; 37
+	lds	r24, 0x006E	;  0x80006e
+	ori	r24, 0x01	; 1
+	sts	0x006E, r24	;  0x80006e
+	sts	0x0081, r1	;  0x800081
+	lds	r24, 0x0081	;  0x800081
+	ori	r24, 0x02	; 2
+	sts	0x0081, r24	;  0x800081
+	lds	r24, 0x0081	;  0x800081
+	ori	r24, 0x01	; 1
+	sts	0x0081, r24	;  0x800081
+	lds	r24, 0x0080	;  0x800080
+	ori	r24, 0x01	; 1
+	sts	0x0080, r24	;  0x800080
+	lds	r24, 0x00B1	;  0x8000b1
+	ori	r24, 0x04	; 4
+	sts	0x00B1, r24	;  0x8000b1
+	lds	r24, 0x00B0	;  0x8000b0
+	ori	r24, 0x01	; 1
+	sts	0x00B0, r24	;  0x8000b0
+	lds	r24, 0x007A	;  0x80007a
+	ori	r24, 0x04	; 4
+	sts	0x007A, r24	;  0x80007a
+	lds	r24, 0x007A	;  0x80007a
+	ori	r24, 0x02	; 2
+	sts	0x007A, r24	;  0x80007a
+	lds	r24, 0x007A	;  0x80007a
+	ori	r24, 0x01	; 1
+	sts	0x007A, r24	;  0x80007a
+	lds	r24, 0x007A	;  0x80007a
+	ori	r24, 0x80	; 128
+	sts	0x007A, r24	;  0x80007a
+	sts	0x00C1, r1	;  0x8000c1
+	ldi	r30, 0x9D	; 157
+	ldi	r31, 0x00	; 0
+	lpm	r18, Z
+	ldi	r30, 0x89	; 137
+	ldi	r31, 0x00	; 0
+	lpm	r24, Z
+	and	r24, r24
+	breq	.+38     	;  0x21c
+	ldi	r25, 0x00	; 0
+	add	r24, r24
+	adc	r25, r25
+	movw	r30, r24
+	subi	r30, 0x8E	; 142
+	sbci	r31, 0xFF	; 255
+	lpm	r26, Z+
+	lpm	r27, Z
+	movw	r30, r24
+	subi	r30, 0x98	; 152
+	sbci	r31, 0xFF	; 255
+	lpm	r24, Z+
+	lpm	r25, Z
+	in	r24, 0x3f	; 63
+	cli
+	ld	r30, X
+	or	r30, r18
+	st	X, r30
+	out	0x3f, r24	; 63
+	ldi	r28, 0x00	; 0
+	ldi	r29, 0x00	; 0
+	sbiw	r28, 0x00	; 0
+	breq	.-4      	;  0x220
+	call	0	;  0x0
+	rjmp	.-10     	;  0x220
+	cli
+	rjmp	.-2      	;  0x22c

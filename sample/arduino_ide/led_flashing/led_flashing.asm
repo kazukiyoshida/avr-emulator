@@ -5,28 +5,50 @@ led_flashing.ino.standard.hex:     file format ihex
 Disassembly of section .sec1:
 
 00000000 <.sec1>:
+
+   // 読み方
    0:	0c 94 5c 00 	jmp	0xb8	;  0xb8
+                ^ ここまでで 4バイト = 32 bit 命令.
+                  プログラムメモリは 16bit なので、2セグメント分
+      ^ 0c で 1バイト
+   ^ これは 0 バイト目から読みますよ、を示す（0 からスタート）
+
    4:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-   8:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-   c:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  10:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  14:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  18:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  1c:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  20:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  24:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  28:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  2c:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  30:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  34:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  38:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  3c:	0c 94 6e 00 	jmp	0xdc	;  0xdc
-  40:	0c 94 13 01 	jmp	0x226	;  0x226
+   ^ これは 4 バイト目から読みますよ、を示す
+     プログラムメモリのアドレスとしては「2」になる！
+
+   0x940c <- PC=0.  JMP
+   0x005c
+   = 1001_0100_0000_1100_0000_0000_0101_1100
+   <- k = 1011100 = 0x5c = 0d92
+   0:	0c 94 5c 00 	jmp	0xb8	;  0xb8 // RESET
+
+   4:	0c 94 6e 00 	jmp	0xdc	;  0xdc // 外部割り込み 0
+   8:	0c 94 6e 00 	jmp	0xdc	;  0xdc // 外部割り込み 1
+   c:	0c 94 6e 00 	jmp	0xdc	;  0xdc // ピン入力？割り込み
+  10:	0c 94 6e 00 	jmp	0xdc	;  0xdc // ピン入力？割り込み
+  14:	0c 94 6e 00 	jmp	0xdc	;  0xdc // ピン入力？割り込み
+  18:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Watchdog Timer 割り込み
+  1c:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter2 コンペアマッチA
+  20:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter2 コンペアマッチB
+  24:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter2 Overflow
+  28:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter1 Capture Event
+  2c:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter1 コンペアマッチA
+  30:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter1 コンペアマッチB
+  34:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter1 Overflow
+  38:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter0 コンペアマッチA
+  3c:	0c 94 6e 00 	jmp	0xdc	;  0xdc // Timer/counter0 コンペアマッチB
+  40:	0c 94 13 01 	jmp	0x226	;  0x226// Timer/counter0 Overflow
   44:	0c 94 6e 00 	jmp	0xdc	;  0xdc
   48:	0c 94 6e 00 	jmp	0xdc	;  0xdc
   4c:	0c 94 6e 00 	jmp	0xdc	;  0xdc
   50:	0c 94 6e 00 	jmp	0xdc	;  0xdc
+
+  0x940c_006e
+  = 1001_0100_0000_1100  0000_0000_0110_1110
+  -> k = 1101110 = 6e
   54:	0c 94 6e 00 	jmp	0xdc	;  0xdc
+
   58:	0c 94 6e 00 	jmp	0xdc	;  0xdc
   5c:	0c 94 6e 00 	jmp	0xdc	;  0xdc
   60:	0c 94 6e 00 	jmp	0xdc	;  0xdc
@@ -34,7 +56,11 @@ Disassembly of section .sec1:
   68:	00 00       	nop
   6a:	00 00       	nop
   6c:	24 00       	.word	0x0024	; ????
+
+  0x0027
+  = 0000_0000_0010_0111
   6e:	27 00       	.word	0x0027	; ????
+
   70:	2a 00       	.word	0x002a	; ????
   72:	00 00       	nop
   74:	00 00       	nop
@@ -68,23 +94,51 @@ Disassembly of section .sec1:
   ac:	00 03       	mulsu	r16, r16
   ae:	04 07       	cpc	r16, r20
 	...
+
+  0x1124 = 0b0001_0001_0010_0100 <- 逆に並んでいる!
+  0x2411 = 0b0010_0100_0001_0001 <- EOR
   b8:	11 24       	eor	r1, r1
-  ba:	1f be       	out	0x3f, r1	; 63
+  ^ 0xb8 = 0d184. これの半分は 0d92 = 0x5c でこれがメモリアドレス.
+
+  0xbe1f = 0b1011_1110_0001_1111 <- OUT A=0b111111=0d63 r=1.
+                                      IO(63) = SREG に R1 の内容を書き込み
+  ba:	1f be       	out	0x3f, r1	; 63 --> SREG
+
   bc:	cf ef       	ldi	r28, 0xFF	; 255
   be:	d8 e0       	ldi	r29, 0x08	; 8
-  c0:	de bf       	out	0x3e, r29	; 62
-  c2:	cd bf       	out	0x3d, r28	; 61
+  c0:	de bf       	out	0x3e, r29	; 62 --> SPH
+  c2:	cd bf       	out	0x3d, r28	; 61 --> SPL
   c4:	21 e0       	ldi	r18, 0x01	; 1
   c6:	a0 e0       	ldi	r26, 0x00	; 0
   c8:	b1 e0       	ldi	r27, 0x01	; 1
+
+  c001
+  1100_0000_0000_0001
+  k = 1
   ca:	01 c0       	rjmp	.+2      	;  0xce
+
   cc:	1d 92       	st	X+, r1
   ce:	a9 30       	cpi	r26, 0x09	; 9
   d0:	b2 07       	cpc	r27, r18
+
+  0xf7e1
+  = 1111_0111_1110_0001
+  -> k = 1111100
   d2:	e1 f7       	brne	.-8      	;  0xcc
+
+  0x940e015d
+  = 0b1001_0100_0000_1110_ 0000_0001_0101_1101 <- call
+  k = 0000_0001_0101_1101
+    = 0b0000000101011101
+    = 0b101011101
+    = 0x15d =  0d349 --> 0d698 = 0x2ba
   d4:	0e 94 5d 01 	call	0x2ba	;  0x2ba
+
   d8:	0c 94 cc 01 	jmp	0x398	;  0x398
+
+  //  RESET 割り込み へ
   dc:	0c 94 00 00 	jmp	0	;  0x0
+
   e0:	e1 eb       	ldi	r30, 0xB1	; 177
   e2:	f0 e0       	ldi	r31, 0x00	; 0
   e4:	24 91       	lpm	r18, Z
@@ -95,11 +149,17 @@ Disassembly of section .sec1:
   ee:	f0 e0       	ldi	r31, 0x00	; 0
   f0:	e4 91       	lpm	r30, Z
   f2:	ee 23       	and	r30, r30
+
+  f0c9
+  1111_0000_1100_1001
+  k = 11001 = 0d25
   f4:	c9 f0       	breq	.+50     	;  0x128
+
   f6:	22 23       	and	r18, r18
   f8:	39 f0       	breq	.+14     	;  0x108
   fa:	23 30       	cpi	r18, 0x03	; 3
   fc:	01 f1       	breq	.+64     	;  0x13e
+
   fe:	a8 f4       	brcc	.+42     	;  0x12a
  100:	21 30       	cpi	r18, 0x01	; 1
  102:	19 f1       	breq	.+70     	;  0x14a
@@ -120,8 +180,10 @@ Disassembly of section .sec1:
  120:	90 95       	com	r25
  122:	9e 23       	and	r25, r30
  124:	9c 93       	st	X, r25
- 126:	2f bf       	out	0x3f, r18	; 63
+ 126:	2f bf       	out	0x3f, r18	; 63  --> SREG
+
  128:	08 95       	ret
+
  12a:	27 30       	cpi	r18, 0x07	; 7
  12c:	a9 f0       	breq	.+42     	;  0x158
  12e:	28 30       	cpi	r18, 0x08	; 8
@@ -137,7 +199,7 @@ Disassembly of section .sec1:
  148:	df cf       	rjmp	.-66     	;  0x108
  14a:	24 b5       	in	r18, 0x24	; 36
  14c:	2f 77       	andi	r18, 0x7F	; 127
- 14e:	24 bd       	out	0x24, r18	; 36
+ 14e:	24 bd       	out	0x24, r18	; 36 --> 0x24+0x20=0x44=TCCR0a ??
  150:	db cf       	rjmp	.-74     	;  0x108
  152:	24 b5       	in	r18, 0x24	; 36
  154:	2f 7d       	andi	r18, 0xDF	; 223
@@ -148,7 +210,12 @@ Disassembly of section .sec1:
  162:	d2 cf       	rjmp	.-92     	;  0x108
  164:	20 91 b0 00 	lds	r18, 0x00B0	;  0x8000b0
  168:	2f 7d       	andi	r18, 0xDF	; 223
+
+ cff9
+ = 1100111111111001
+ -> 1111_1111_1001
  16a:	f9 cf       	rjmp	.-14     	;  0x15e
+
  16c:	9e 2b       	or	r25, r30
  16e:	da cf       	rjmp	.-76     	;  0x124
  170:	3f b7       	in	r19, 0x3f	; 63
@@ -165,7 +232,7 @@ Disassembly of section .sec1:
  18e:	01 96       	adiw	r24, 0x01	; 1
  190:	a1 1d       	adc	r26, r1
  192:	b1 1d       	adc	r27, r1
- 194:	3f bf       	out	0x3f, r19	; 63
+ 194:	3f bf       	out	0x3f, r19	; 63 --> SREG
  196:	ba 2f       	mov	r27, r26
  198:	a9 2f       	mov	r26, r25
  19a:	98 2f       	mov	r25, r24
@@ -183,7 +250,9 @@ Disassembly of section .sec1:
  1b2:	99 1f       	adc	r25, r25
  1b4:	4a 95       	dec	r20
  1b6:	d1 f7       	brne	.-12     	;  0x1ac
+
  1b8:	08 95       	ret
+
  1ba:	8f 92       	push	r8
  1bc:	9f 92       	push	r9
  1be:	af 92       	push	r10
@@ -235,7 +304,9 @@ Disassembly of section .sec1:
  21e:	af 90       	pop	r10
  220:	9f 90       	pop	r9
  222:	8f 90       	pop	r8
+
  224:	08 95       	ret
+
  226:	1f 92       	push	r1
  228:	0f 92       	push	r0
  22a:	0f b6       	in	r0, 0x3f	; 63
@@ -282,10 +353,12 @@ Disassembly of section .sec1:
  2a0:	3f 91       	pop	r19
  2a2:	2f 91       	pop	r18
  2a4:	0f 90       	pop	r0
- 2a6:	0f be       	out	0x3f, r0	; 63
+ 2a6:	0f be       	out	0x3f, r0	; 63 --> SREG
  2a8:	0f 90       	pop	r0
  2aa:	1f 90       	pop	r1
+
  2ac:	18 95       	reti
+
  2ae:	26 e8       	ldi	r18, 0x86	; 134
  2b0:	23 0f       	add	r18, r19
  2b2:	02 96       	adiw	r24, 0x02	; 2
@@ -295,16 +368,16 @@ Disassembly of section .sec1:
  2ba:	78 94       	sei
  2bc:	84 b5       	in	r24, 0x24	; 36
  2be:	82 60       	ori	r24, 0x02	; 2
- 2c0:	84 bd       	out	0x24, r24	; 36
+ 2c0:	84 bd       	out	0x24, r24	; 36 --> TCCR0A == タイマー
  2c2:	84 b5       	in	r24, 0x24	; 36
  2c4:	81 60       	ori	r24, 0x01	; 1
- 2c6:	84 bd       	out	0x24, r24	; 36
+ 2c6:	84 bd       	out	0x24, r24	; 36 --> TCCR0A
  2c8:	85 b5       	in	r24, 0x25	; 37
  2ca:	82 60       	ori	r24, 0x02	; 2
- 2cc:	85 bd       	out	0x25, r24	; 37
+ 2cc:	85 bd       	out	0x25, r24	; 37 --> TCCR0B
  2ce:	85 b5       	in	r24, 0x25	; 37
  2d0:	81 60       	ori	r24, 0x01	; 1
- 2d2:	85 bd       	out	0x25, r24	; 37
+ 2d2:	85 bd       	out	0x25, r24	; 37 --> TCCR0B
  2d4:	80 91 6e 00 	lds	r24, 0x006E	;  0x80006e
  2d8:	81 60       	ori	r24, 0x01	; 1
  2da:	80 93 6e 00 	sts	0x006E, r24	;  0x80006e
@@ -344,7 +417,12 @@ Disassembly of section .sec1:
  348:	f0 e0       	ldi	r31, 0x00	; 0
  34a:	84 91       	lpm	r24, Z
  34c:	88 23       	and	r24, r24
+
+ f099
+ 1111_0000_1001_1001
+ k = 10011 = 0d19
  34e:	99 f0       	breq	.+38     	;  0x376
+
  350:	90 e0       	ldi	r25, 0x00	; 0
  352:	88 0f       	add	r24, r24
  354:	99 1f       	adc	r25, r25
@@ -363,11 +441,16 @@ Disassembly of section .sec1:
  36e:	ec 91       	ld	r30, X
  370:	e2 2b       	or	r30, r18
  372:	ec 93       	st	X, r30
- 374:	8f bf       	out	0x3f, r24	; 63
+ 374:	8f bf       	out	0x3f, r24	; 63 --> EECR
  376:	c0 e0       	ldi	r28, 0x00	; 0
  378:	d0 e0       	ldi	r29, 0x00	; 0
  37a:	81 e0       	ldi	r24, 0x01	; 1
+
+ 940e 0070
+ = 1001_0100_0000_1110 0000_0000_0111_0000
+ k = 1110000 = 0d112
  37c:	0e 94 70 00 	call	0xe0	;  0xe0
+
  380:	0e 94 dd 00 	call	0x1ba	;  0x1ba
  384:	80 e0       	ldi	r24, 0x00	; 0
  386:	0e 94 70 00 	call	0xe0	;  0xe0
