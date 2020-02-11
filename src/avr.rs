@@ -87,10 +87,6 @@ pub trait AVR {
 
     fn set_status(&mut self, s: Sreg, v: bool);
 
-    fn status_as_u8(&self, s: Sreg) -> u8 {
-        if self.status(s) { 1u8 } else { 0u8 }
-    }
-
     fn set_status_by_arithmetic_instruction(&mut self, d: u8, r: u8, res: u8) {
         // WIP: Updating algorithm of status bit is not optimized
         self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
@@ -152,7 +148,7 @@ instruction:     {:?} ({:#04x}) "#,
 
 // Status Register
 #[derive(Eq, PartialEq, Debug)]
-pub enum Sreg { I, T, H, S, V, N, Z, C }
+pub enum Sreg { C, Z, N, V, S, H, T, I }
 
 // Pointer Register
 #[derive(Eq, PartialEq, Debug)]

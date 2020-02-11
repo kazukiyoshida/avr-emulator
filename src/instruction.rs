@@ -190,7 +190,7 @@ pub trait AVRInstruction: AVR {
     fn adc(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = r.wrapping_add(d).wrapping_add(c);
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
@@ -201,7 +201,7 @@ pub trait AVRInstruction: AVR {
     fn sbci(&mut self) {
         let (k, d_addr) = self.word().operand84();
         let d = self.gprg(d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_sub(k).wrapping_sub(c);
         self.set_gprg(d_addr, res);
         // self.set_status_by_arithmetic_instruction(d, r, res);
@@ -246,7 +246,7 @@ pub trait AVRInstruction: AVR {
     fn sbc(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_add(r).wrapping_add(c);
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
@@ -436,7 +436,7 @@ pub trait AVRInstruction: AVR {
     fn cpc(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_sub(r).wrapping_sub(c);
         self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
         self.set_status(Sreg::V, has_2complement_overflow(d, r, res));

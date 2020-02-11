@@ -65,11 +65,11 @@ impl AVR for ATmega328P {
     }
 
     fn status(&self, s: Sreg) -> bool {
-        bit(self.sram.0[STATUS_REGISTER], self.status_register_map(&s))
+        bit(self.sram.0[STATUS_REGISTER], s as u8)
     }
 
     fn set_status(&mut self, s: Sreg, v: bool) {
-        let n = self.status_register_map(&s);
+        let n = s as u8;
         let sreg = &mut self.sram.0[STATUS_REGISTER];
         if v {
             *sreg = *sreg | ( 1 << n );
@@ -90,19 +90,6 @@ impl ATmega328P {
             sram: sram,
             eeprom: EEPROM::new(),
             pc: 0,
-        }
-    }
-
-    pub fn status_register_map(&self, s: &Sreg) -> u8 {
-        match *s {
-            Sreg::I => 7,
-            Sreg::T => 6,
-            Sreg::H => 5,
-            Sreg::S => 4,
-            Sreg::V => 3,
-            Sreg::N => 2,
-            Sreg::Z => 1,
-            Sreg::C => 0,
         }
     }
 
