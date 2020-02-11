@@ -68,6 +68,11 @@ pub trait AVR {
         self.set_gprg(l_addr, low_bit(v));
     }
 
+    // Cycle Counter
+    fn cycle(&self) -> u64;
+
+    fn cycle_increment(&mut self, v: u64);
+
     // Fetch 1 word from Program Memory.
     // Program Memory has ~0x8000 address, this is coverd by u16(~0xffff).
     fn fetch(&self, p: u32) -> u16;
@@ -86,10 +91,6 @@ pub trait AVR {
     fn status(&self, s: Sreg) -> bool;
 
     fn set_status(&mut self, s: Sreg, v: bool);
-
-    fn status_as_u8(&self, s: Sreg) -> u8 {
-        if self.status(s) { 1u8 } else { 0u8 }
-    }
 
     fn set_status_by_arithmetic_instruction(&mut self, d: u8, r: u8, res: u8) {
         // WIP: Updating algorithm of status bit is not optimized
@@ -114,22 +115,23 @@ pub trait AVR {
     }
 
     fn view_processor_status(&self, instruction: &Instr) {
-        print!("\x1B[2J"); // clear console
-        println!(
-r#"
+        println!(r#"
 Program Counter: {:#08x} (Hexfile = {:x})
 Stack Pointer:   {:#04x}
 X Register:      {:#04x}
 Y Register:      {:#04x}
 Z Register:      {:#04x}
 Status Register: {:08b}
-instruction:     {:?} ({:#04x}) "#,
+Cycle Counter:   {}
+instruction:     {:?} ({:#04x})
+"#,
             self.pc(), self.pc()*2,
             self.sp(),
             self.preg(Preg::X),
             self.preg(Preg::Y),
             self.preg(Preg::Z),
             self.sreg(),
+            self.cycle(),
             instruction,
             self.word().0,
         );
@@ -146,13 +148,14 @@ instruction:     {:?} ({:#04x}) "#,
                 i+3, self.gprg(i+3)
             );
         }
+        println!("");
     }
 
 }
 
 // Status Register
 #[derive(Eq, PartialEq, Debug)]
-pub enum Sreg { I, T, H, S, V, N, Z, C }
+pub enum Sreg { C, Z, N, V, S, H, T, I }
 
 // Pointer Register
 #[derive(Eq, PartialEq, Debug)]
@@ -164,14 +167,13 @@ where T: LowerHex
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
 
-    fn view_memory(&self, unit: u8, length: usize) {
-        print!("\x1B[2J"); // clear console
-        for i in 0..length {
+    fn view_memory(&self, unit: u8, from: usize, to: usize) {
+        for i in from..to {
             let i = i * 8;
             if unit == 2 {
                 println!(
                     "{:#06x} | {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-                    i*2,
+                    i,
                     self.get(i+0), self.get(i+1), self.get(i+2), self.get(i+3),
                     self.get(i+4), self.get(i+5), self.get(i+6), self.get(i+7),
                 );
@@ -186,5 +188,6 @@ where T: LowerHex
                 return
             };
         }
+        println!("");
     }
 }

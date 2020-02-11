@@ -80,6 +80,7 @@ lazy_static! {
 }
 
 // WIP: Decode のアルゴリズムは Tree を使って高速化可能
+// cf. https://www.avrfreaks.net/comment/128264#comment-128264
 pub fn is_decoded(word: Word, code: &Opcode) -> bool {
     for (word_bit, code_bit, mask_bit) in izip!(word, Word(code.0), Word(code.1)) {
         if mask_bit && ( word_bit != code_bit ) {
@@ -185,28 +186,31 @@ pub trait AVRInstruction: AVR {
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn adc(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = r.wrapping_add(d).wrapping_add(c);
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn sbci(&mut self) {
         let (k, d_addr) = self.word().operand84();
         let d = self.gprg(d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_sub(k).wrapping_sub(c);
         self.set_gprg(d_addr, res);
         // self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < k);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn dec(&mut self) {
@@ -221,6 +225,7 @@ pub trait AVRInstruction: AVR {
         self.signed_test();
 
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn com(&mut self) {
@@ -231,6 +236,7 @@ pub trait AVRInstruction: AVR {
         self.set_status_by_bit_instruction(res);
         self.set_status(Sreg::C, false);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn sub(&mut self) {
@@ -241,17 +247,19 @@ pub trait AVRInstruction: AVR {
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < r);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn sbc(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_add(r).wrapping_add(c);
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < (r+1));
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn subi(&mut self) {
@@ -262,6 +270,7 @@ pub trait AVRInstruction: AVR {
         // self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < k);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn ld1(&mut self) {
@@ -269,6 +278,7 @@ pub trait AVRInstruction: AVR {
         let x_addr = self.preg(Preg::X);
         self.set_gprg(d_addr, self.gprg(x_addr as usize));
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn ld2(&mut self) {
@@ -278,6 +288,7 @@ pub trait AVRInstruction: AVR {
         self.set_gprg(d_addr, x);
         self.set_preg(Preg::X, x_addr + 1u16);
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn ld3(&mut self) {
@@ -287,12 +298,14 @@ pub trait AVRInstruction: AVR {
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
         self.pc_increment();
+        self.cycle_increment(3);
     }
 
     fn ldi(&mut self) {
         let (k, d_addr) = self.word().operand84();
         self.set_gprg(d_addr, k);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn lds(&mut self) {
@@ -300,6 +313,7 @@ pub trait AVRInstruction: AVR {
         let d_addr = w.operand5();
         self.set_gprg(d_addr, k.0 as u8);
         self.pc_double_increment();
+        self.cycle_increment(2);
     }
 
     fn out(&mut self) {
@@ -307,6 +321,7 @@ pub trait AVRInstruction: AVR {
         let r = self.gprg(r_addr);
         self.set_gprg(a_addr, r);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn in_instr(&mut self) {
@@ -314,10 +329,12 @@ pub trait AVRInstruction: AVR {
         let a = self.gprg(a_addr);
         self.set_gprg(d_addr, a);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn nop(&mut self) {
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn call(&mut self) {
@@ -329,6 +346,8 @@ pub trait AVRInstruction: AVR {
         // Update pc by immediate
         let (w1, w2) = self.double_word();
         self.set_pc(w1.operand22(w2));
+
+        self.cycle_increment(4);
     }
 
     // WIP
@@ -336,12 +355,14 @@ pub trait AVRInstruction: AVR {
         let k = self.word().operand12() as u32;
         let pc = self.pc();
         self.set_pc(pc+k+1);
+        self.cycle_increment(3);
     }
 
     fn jmp(&mut self) {
         let (w1, w2) = self.double_word();
         let k = w1.operand22(w2);
-        self.set_pc(k)
+        self.set_pc(k);
+        self.cycle_increment(3);
     }
 
     fn rjmp(&mut self) {
@@ -349,6 +370,7 @@ pub trait AVRInstruction: AVR {
         let pc = self.pc();
         let result = add_12bits_in_twos_complement_form(pc, k) + 1u32;
         self.set_pc(result);
+        self.cycle_increment(2);
     }
 
     fn sts(&mut self) {
@@ -357,6 +379,7 @@ pub trait AVRInstruction: AVR {
         let d = self.gprg(d_addr);
         self.set_gprg(k.0 as usize, d);
         self.pc_double_increment();
+        self.cycle_increment(2);
     }
 
     fn lpm1(&mut self) {
@@ -366,6 +389,7 @@ pub trait AVRInstruction: AVR {
             self.set_gprg(0, low_bit(self.preg(Preg::Z)));
         }
         self.pc_increment();
+        self.cycle_increment(3);
     }
 
     fn lpm2(&mut self) {
@@ -376,6 +400,7 @@ pub trait AVRInstruction: AVR {
             self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
         }
         self.pc_increment();
+        self.cycle_increment(3);
     }
 
     fn lpm3(&mut self) {
@@ -387,6 +412,7 @@ pub trait AVRInstruction: AVR {
         }
         self.set_preg(Preg::Z, self.preg(Preg::Z)+1);
         self.pc_increment();
+        self.cycle_increment(3);
     }
 
     fn st1(&mut self) {
@@ -395,6 +421,7 @@ pub trait AVRInstruction: AVR {
         let d = self.gprg(d_addr);
         self.set_gprg(x_addr as usize, d);
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn st2(&mut self) {
@@ -404,6 +431,7 @@ pub trait AVRInstruction: AVR {
         self.set_preg(Preg::X, x_addr + 1);
         self.set_gprg(x_addr as usize, d);
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn st3(&mut self) {
@@ -413,6 +441,7 @@ pub trait AVRInstruction: AVR {
         self.set_preg(Preg::X, x_addr);
         self.set_gprg(x_addr as usize, d);
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn cp(&mut self) {
@@ -422,21 +451,24 @@ pub trait AVRInstruction: AVR {
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < r);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
+    // WIP
     fn cpi(&mut self) {
         let (k, d_addr) = self.word().operand84();
         let d = self.gprg(d_addr);
         let res = d.wrapping_sub(k);
-        // self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status_by_arithmetic_instruction(d, k, res);
         self.set_status(Sreg::C, d < k);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn cpc(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
-        let c = self.status_as_u8(Sreg::C);
+        let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_sub(r).wrapping_sub(c);
         self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
         self.set_status(Sreg::V, has_2complement_overflow(d, r, res));
@@ -447,6 +479,7 @@ pub trait AVRInstruction: AVR {
         self.set_status(Sreg::C, d < r+c);
         self.signed_test();
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn cpse(&mut self) {
@@ -455,8 +488,10 @@ pub trait AVRInstruction: AVR {
         if r == d {
             // WIP: ATmega328p is 16bit Program Counter machine...
             self.set_pc(self.pc()+2);
+            self.cycle_increment(2);
         } else {
             self.pc_increment();
+            self.cycle_increment(1);
         }
     }
 
@@ -467,6 +502,7 @@ pub trait AVRInstruction: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn and(&mut self) {
@@ -476,6 +512,7 @@ pub trait AVRInstruction: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn andi(&mut self) {
@@ -485,6 +522,7 @@ pub trait AVRInstruction: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn eor(&mut self) {
@@ -494,6 +532,7 @@ pub trait AVRInstruction: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn breq(&mut self) {
@@ -502,19 +541,23 @@ pub trait AVRInstruction: AVR {
             let pc = self.pc();
             let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
             self.set_pc(result);
+            self.cycle_increment(2);
         } else {
             self.pc_increment();
+            self.cycle_increment(1);
         }
     }
 
     fn brne(&mut self) {
         if self.status(Sreg::Z) {
             self.pc_increment();
+            self.cycle_increment(1);
         } else {
             let k = self.word().operand7();
             let pc = self.pc();
             let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
             self.set_pc(result as u32);
+            self.cycle_increment(2);
         }
     }
 
@@ -524,8 +567,10 @@ pub trait AVRInstruction: AVR {
             let pc = self.pc();
             let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
             self.set_pc(result as u32);
+            self.cycle_increment(2);
         } else {
             self.pc_increment();
+            self.cycle_increment(1);
         }
     }
 
@@ -536,8 +581,10 @@ pub trait AVRInstruction: AVR {
         if bit(a, b) {
             // WIP: ATmega328p is 16bit Program Counter machine...
             self.set_pc(self.pc()+2);
+            self.cycle_increment(2);
         } else {
             self.pc_increment();
+            self.cycle_increment(1);
         }
     }
 
@@ -554,22 +601,26 @@ pub trait AVRInstruction: AVR {
         self.set_status(Sreg::Z, result == 0);
         self.signed_test();
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn sei(&mut self) {
         self.set_status(Sreg::I, true);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn cli(&mut self) {
         self.set_status(Sreg::I, false);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn ret(&mut self) {
         // WIP: ATmega328p is 16bit Program Counter machine...
         let pc = self.pop_pc_stack();
         self.set_pc(pc as u32);
+        self.cycle_increment(4);
     }
 
     fn push(&mut self) {
@@ -577,6 +628,7 @@ pub trait AVRInstruction: AVR {
         let d = self.gprg(d_addr);
         self.push_stack(d);
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn pop(&mut self) {
@@ -584,6 +636,7 @@ pub trait AVRInstruction: AVR {
         let s = self.pop_stack();
         self.set_gprg(d_addr, s);
         self.pc_increment();
+        self.cycle_increment(2);
     }
 
     fn mov(&mut self) {
@@ -591,6 +644,7 @@ pub trait AVRInstruction: AVR {
         let r = self.gprg(r_addr);
         self.set_gprg(d_addr, r);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 
     fn movw(&mut self) {
@@ -599,5 +653,6 @@ pub trait AVRInstruction: AVR {
         self.set_gprg(d_addr, rl);
         self.set_gprg(d_addr + 1, rh);
         self.pc_increment();
+        self.cycle_increment(1);
     }
 }

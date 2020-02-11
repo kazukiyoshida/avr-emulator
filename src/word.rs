@@ -28,8 +28,8 @@ impl Word {
 
     pub fn operand65(&self) -> (usize, usize) {
         // I/O Register starts from 0x20(0d32), so there is offset.
-        (operand(self.0, 0b0000_0110_0000_1111) as usize,
-         ( operand(self.0, 0b0000_0001_1111_0000) + 0x20 ) as usize)
+        (( operand(self.0, 0b0000_0110_0000_1111) + 0x20 ) as usize,
+         operand(self.0, 0b0000_0001_1111_0000) as usize)
     }
 
     pub fn operand62(&self) -> (u8, usize) {

@@ -18,6 +18,7 @@ pub struct ATmega328P {
     pub sram: SRAM,
     pub eeprom: EEPROM,
     pub pc: u32,
+    pub cycle: u64,
 }
 
 impl AVR for ATmega328P {
@@ -56,6 +57,14 @@ impl AVR for ATmega328P {
         self.sram.set(addr, v)
     }
 
+    fn cycle(&self) -> u64 {
+        self.cycle
+    }
+
+    fn cycle_increment(&mut self, v: u64) {
+        self.cycle += v;
+    }
+
     fn fetch(&self, p: u32) -> u16 {
         self.flash_memory.get(p as usize)
     }
@@ -65,11 +74,11 @@ impl AVR for ATmega328P {
     }
 
     fn status(&self, s: Sreg) -> bool {
-        bit(self.sram.0[STATUS_REGISTER], self.status_register_map(&s))
+        bit(self.sram.0[STATUS_REGISTER], s as u8)
     }
 
     fn set_status(&mut self, s: Sreg, v: bool) {
-        let n = self.status_register_map(&s);
+        let n = s as u8;
         let sreg = &mut self.sram.0[STATUS_REGISTER];
         if v {
             *sreg = *sreg | ( 1 << n );
@@ -90,19 +99,7 @@ impl ATmega328P {
             sram: sram,
             eeprom: EEPROM::new(),
             pc: 0,
-        }
-    }
-
-    pub fn status_register_map(&self, s: &Sreg) -> u8 {
-        match *s {
-            Sreg::I => 7,
-            Sreg::T => 6,
-            Sreg::H => 5,
-            Sreg::S => 4,
-            Sreg::V => 3,
-            Sreg::N => 2,
-            Sreg::Z => 1,
-            Sreg::C => 0,
+            cycle: 0,
         }
     }
 
@@ -125,7 +122,7 @@ impl ATmega328P {
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
-                self.flash_memory.set(memory_addr, ( c << 12 | d << 8 | a << 4 | b ) as u16);
+                self.flash_memory.set(memory_addr, ( a << 12 | b << 8 | c << 4 | d ) as u16);
                 memory_addr += 1;
             }
         }
@@ -138,8 +135,11 @@ pub struct EEPROM([u8; EEPROM_SIZE]);
 
 impl Memory<u16> for FlashMemory {
     fn get(&self, a: usize) -> u16 {
-        self.0[a]
+        let n = self.0[a];
+        ( ( n & 0xff ) << 8 ) | ( n >> 8 )
     }
+
+    // WIP
     fn set(&mut self, a: usize, v: u16) {
         self.0[a] = v;
     }
