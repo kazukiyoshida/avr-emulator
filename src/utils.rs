@@ -1,57 +1,7 @@
 use super::avr::*;
+use super::word::*;
 
-// r, d
-pub fn operand55(w: Word) -> (u8, u8) {
-    (operand(w.0, 0b0000001000001111) as u8,
-     operand(w.0, 0b0000000111110000) as u8)
-}
-
-// d, r
-pub fn operand44(w: Word) -> (u8, u8) {
-    (operand(w.0, 0b0000000011110000) as u8,
-     operand(w.0, 0b0000000000001111) as u8)
-}
-
-pub fn operand65(w: Word) -> (u8, u8) {
-    (operand(w.0, 0b0000_0110_0000_1111) as u8,
-     operand(w.0, 0b0000_0001_1111_0000) as u8)
-}
-
-pub fn operand84(w: Word) -> (u8, u8) {
-    (operand(w.0, 0b0000111100001111) as u8,
-     operand(w.0, 0b0000000011110000) as u8)
-}
-
-pub fn operand53(w: Word) -> (u8, u8) {
-    (operand(w.0, 0b0000000011111000) as u8,
-     operand(w.0, 0b0000000000000111) as u8)
-}
-
-pub fn operand7(w: Word) -> u8 {
-    operand(w.0, 0b0000001111111000) as u8
-}
-
-pub fn operand5(w: Word) -> u8 {
-    operand(w.0, 0b0000000111110000) as u8
-}
-
-pub fn operand12(w: Word) -> u16 {
-    operand(w.0, 0b0000_1111_1111_1111)
-}
-
-pub fn operand22(w1: Word, w2: Word) -> u32 {
-    ( ( operand(w1.0, 0b0000_0001_1111_0001) as u32 ) << 16 ) | w2.0 as u32
-}
-
-#[test]
-fn test_operand22() {
-    assert_eq!(
-        operand22(Word(0b1001_0100_0000_1110), Word(0b0000_0001_1100_1100)),
-        0b111001100
-    );
-}
-
-fn operand(word: u16, mask: u16) -> u16 {
+pub fn operand(word: u16, mask: u16) -> u16 {
     let mut k = 0;
     Word(word)
         .into_iter()
@@ -156,7 +106,7 @@ fn test_add_in_twos_complement_form() {
     assert_eq!(103, add_7bits_in_twos_complement_form(100u32, 0b11_u8));
     // 100 - 4
     assert_eq!(96, add_7bits_in_twos_complement_form(100u32, 0b111_1100_u8));
-    // 511 - 4 
+    // 511 - 4
     assert_eq!(511-4, add_7bits_in_twos_complement_form(0b1_1111_1111_u32, 0b111_1100_u8));
 
     // 100 + 3

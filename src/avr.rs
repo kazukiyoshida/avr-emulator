@@ -1,5 +1,6 @@
 use std::iter::IntoIterator;
 use super::utils::*;
+use super::word::*;
 
 pub trait AVR {
     // Program Counter 

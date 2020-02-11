@@ -3,6 +3,7 @@ use itertools::izip;
 use lazy_static::lazy_static;
 use super::avr::*;
 use super::utils::*;
+use super::word::*;
 
 
 #[derive(Eq, PartialEq, Hash, Debug)]
@@ -170,64 +171,42 @@ pub trait AVRInstruction: AVR {
     }
 
     fn add(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-        let result = r.wrapping_add(d);
-        self.set_gprg(d_addr as usize, result);
-
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, r, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.set_status(Sreg::C, has_borrow_from_msb(r, d, result));
-        self.signed_test();
-    
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let res = r.wrapping_add(d);
+        self.set_gprg(d_addr, res);
+        self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
         self.pc_increment();
     }
-    
+
     fn adc(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-        let c = if self.status(Sreg::C) { 1u8 } else { 0u8 };
-        let result = r.wrapping_add(d).wrapping_add(c);
-        self.set_gprg(d_addr as usize, result);
-
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, r, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.set_status(Sreg::C, has_borrow_from_msb(r, d, result));
-        self.signed_test();
-    
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let c = self.status_as_u8(Sreg::C);
+        let res = r.wrapping_add(d).wrapping_add(c);
+        self.set_gprg(d_addr, res);
+        self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
         self.pc_increment();
     }
-    
+
     fn sbci(&mut self) {
-        let (k, d_addr) = operand84(self.word());
-        // there is a 16 addr offset
-        let d = self.gprg(d_addr as usize + 16);
-        let c = if self.status(Sreg::C) { 1u8 } else { 0u8 };
-        let result = d.wrapping_sub(k).wrapping_sub(c);
-        self.set_gprg(d_addr as usize, result);
-
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, k, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, k, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
+        let (k, d_addr) = self.word().operand84();
+        let d = self.gprg(d_addr);
+        let c = self.status_as_u8(Sreg::C);
+        let res = d.wrapping_sub(k).wrapping_sub(c);
+        self.set_gprg(d_addr, res);
+        // self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < k);
-        self.signed_test();
-    
         self.pc_increment();
     }
-    
-    fn dec(&mut self) {
-        let d_addr = operand5(self.word());
-        let d = self.gprg(d_addr as usize);
-        let result = d.wrapping_sub(1);
 
-        self.set_gprg(d_addr as usize, result);
+    fn dec(&mut self) {
+        let d_addr = self.word().operand5();
+        let d = self.gprg(d_addr);
+        let result = d.wrapping_sub(1);
+        self.set_gprg(d_addr, result);
 
         self.set_status(Sreg::V, d == 0x80u8);
         self.set_status(Sreg::N, msb(result));
@@ -238,156 +217,131 @@ pub trait AVRInstruction: AVR {
     }
     
     fn sub(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-        let result = d.wrapping_sub(r);
-        self.set_gprg(d_addr as usize, result);
-
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, r, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let res = d.wrapping_sub(r);
+        self.set_gprg(d_addr, res);
+        self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < r);
-        self.signed_test();
-    
         self.pc_increment();
     }
-    
+
     fn sbc(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-        let c = if self.status(Sreg::C) { 1u8 } else { 0u8 };
-        let result = d.wrapping_add(r).wrapping_add(c);
-        self.set_gprg(d_addr as usize, result);
-
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, r, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let c = self.status_as_u8(Sreg::C);
+        let res = d.wrapping_add(r).wrapping_add(c);
+        self.set_gprg(d_addr, res);
+        self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < (r+1));
-        self.signed_test();
-    
         self.pc_increment();
     }
-    
-    fn subi(&mut self) {
-        let (k, d_addr) = operand84(self.word());
-        // there is a 16 addr offset
-        let d = self.gprg(d_addr as usize + 16);
-        let result = d.wrapping_sub(k);
-        self.set_gprg(d_addr as usize, result);
 
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, k, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, k, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
+    fn subi(&mut self) {
+        let (k, d_addr) = self.word().operand84();
+        let d = self.gprg(d_addr);
+        let res = d.wrapping_sub(k);
+        self.set_gprg(d_addr, res);
+        // self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < k);
-        self.signed_test();
-    
         self.pc_increment();
     }
-    
+
     fn ld1(&mut self) {
-        let d_addr = operand5(self.word());
+        let d_addr = self.word().operand5();
         let x_addr = self.xyz_reg(XYZReg::X);
-        let x = self.gprg(x_addr as usize);
-        self.set_gprg(d_addr as usize, x);
+        self.set_gprg(d_addr, self.gprg(x_addr as usize));
         self.pc_increment();
     }
-    
+
     fn ld2(&mut self) {
-        let d_addr = operand5(self.word());
+        let d_addr = self.word().operand5();
         let x_addr = self.xyz_reg(XYZReg::X);
         let x = self.gprg(x_addr as usize);
-        self.set_gprg(d_addr as usize, x);
+        self.set_gprg(d_addr, x);
         self.set_xyz_reg(XYZReg::X, x_addr + 1u16);
         self.pc_increment();
     }
-    
+
     fn ld3(&mut self) {
-        let d_addr = operand5(self.word());
+        let d_addr = self.word().operand5();
         let x_addr = self.xyz_reg(XYZReg::X) - 1u16;
         self.set_xyz_reg(XYZReg::X, x_addr);
         let x = self.gprg(x_addr as usize);
-        self.set_gprg(d_addr as usize, x);
+        self.set_gprg(d_addr, x);
         self.pc_increment();
     }
-    
+
     fn ldi(&mut self) {
-        let (k, d_addr) = operand84(self.word());
-        // there is a 16 addr offset
-        self.set_gprg(d_addr as usize + 16, k);
+        let (k, d_addr) = self.word().operand84();
+        self.set_gprg(d_addr, k);
         self.pc_increment();
     }
-    
+
     fn lds(&mut self) {
-        let (w1, k) = self.double_word();
-        let d_addr = operand5(w1);
-        self.set_gprg(d_addr as usize, k.0 as u8);
+        let (w, k) = self.double_word();
+        let d_addr = w.operand5();
+        self.set_gprg(d_addr, k.0 as u8);
         self.pc_double_increment();
     }
-    
+
     fn out(&mut self) {
-        let (a_addr, r_addr) = operand65(self.word());
-        let r = self.gprg(r_addr as usize);
-        // I/O Register starts from 0x20(0d32), so there is offset.
-        self.set_gprg(( a_addr + 0x20 ) as usize, r);
+        let (a_addr, r_addr) = self.word().operand65();
+        let r = self.gprg(r_addr);
+        self.set_gprg(a_addr, r);
         self.pc_increment();
     }
-    
+
     fn in_instr(&mut self) {
-        let (a_addr, d_addr) = operand65(self.word());
-        // I/O Register starts from 0x20(0d32), so there is offset.
-        let a = self.gprg(( a_addr + 0x20 ) as usize);
-        self.set_gprg(d_addr as usize, a);
+        let (a_addr, d_addr) = self.word().operand65();
+        let a = self.gprg(a_addr);
+        self.set_gprg(d_addr, a);
         self.pc_increment();
     }
-    
+
     fn nop(&mut self) {
         self.pc_increment();
     }
-    
+
     fn call(&mut self) {
         // Push current pc to stack
         // WIP: ATmega328p is 16bit Program Counter machine...
         //      if pc is 16 bit, then sp-2. if pc is 22 bit then sp-3.
-        self.push_pc_stack(self.pc()+2); 
+        self.push_pc_stack(self.pc()+2);
 
         // Update pc by immediate
         let (w1, w2) = self.double_word();
-        self.set_pc(operand22(w1, w2));
+        self.set_pc(w1.operand22(w2));
     }
-    
+
     // WIP
     fn rcall(&mut self) {
-        let k = operand12(self.word()) as u32;
+        let k = self.word().operand12() as u32;
         let pc = self.pc();
         self.set_pc(pc+k+1);
     }
-    
+
     fn jmp(&mut self) {
         let (w1, w2) = self.double_word();
-        let k = operand22(w1, w2);
+        let k = w1.operand22(w2);
         self.set_pc(k)
     }
-    
+
     fn rjmp(&mut self) {
-        let k = operand12(self.word());
+        let k = self.word().operand12();
         let pc = self.pc();
         let result = add_12bits_in_twos_complement_form(pc, k) + 1u32;
         self.set_pc(result);
     }
-    
+
     fn sts(&mut self) {
         let (w1, k) = self.double_word();
-        let d_addr = operand5(w1);
-        let d = self.gprg(d_addr as usize);
+        let d_addr = w1.operand5();
+        let d = self.gprg(d_addr);
         self.set_gprg(k.0 as usize, d);
         self.pc_double_increment();
     }
-    
+
     fn lpm1(&mut self) {
         if ( self.xyz_reg(XYZReg::Z) & 1 ) == 1 {
             self.set_gprg(0, high_bit(self.xyz_reg(XYZReg::Z)));
@@ -396,83 +350,91 @@ pub trait AVRInstruction: AVR {
         }
         self.pc_increment();
     }
-    
+
     fn lpm2(&mut self) {
-        let d_addr = operand5(self.word());
+        let d_addr = self.word().operand5();
         if ( self.xyz_reg(XYZReg::Z) & 1 ) == 1 {
-            self.set_gprg(d_addr as usize, high_bit(self.xyz_reg(XYZReg::Z)));
+            self.set_gprg(d_addr, high_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
         } else {
-            self.set_gprg(d_addr as usize, low_bit(self.xyz_reg(XYZReg::Z)));
+            self.set_gprg(d_addr, low_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
         }
         self.pc_increment();
     }
-    
+
     fn lpm3(&mut self) {
-        let d_addr = operand5(self.word());
+        let d_addr = self.word().operand5();
         if ( self.xyz_reg(XYZReg::Z) & 1 ) == 1 {
-            self.set_gprg(d_addr as usize, high_bit(self.xyz_reg(XYZReg::Z)));
+            self.set_gprg(d_addr, high_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
         } else {
-            self.set_gprg(d_addr as usize, low_bit(self.xyz_reg(XYZReg::Z)));
+            self.set_gprg(d_addr, low_bit(self.fetch(self.xyz_reg(XYZReg::Z) as u32)));
         }
         self.set_xyz_reg(XYZReg::Z, self.xyz_reg(XYZReg::Z)+1);
         self.pc_increment();
     }
-    
-    // WIP
+
     fn st1(&mut self) {
-        // self.pc_increment();
-    }
-    
-    // WIP
-    fn st2(&mut self) {
-        // self.pc_increment();
-    }
-    
-    // WIP
-    fn st3(&mut self) {
-        // self.pc_increment();
-    }
-    
-    // WIP
-    fn cpi(&mut self) {
-        let (k, d_addr) = operand84(self.word());
-        // there is a 16 addr offset
-        let d = self.gprg(d_addr as usize + 16);
-        let result = d.wrapping_sub(k);
-    
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, k, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, k, result));
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.set_status(Sreg::C, d < k);
-        self.signed_test();
-    
+        let d_addr = self.word().operand5();
+        let x_addr = self.xyz_reg(XYZReg::X);
+        let d = self.gprg(d_addr);
+        self.set_gprg(x_addr as usize, d);
         self.pc_increment();
     }
-    
+
+    fn st2(&mut self) {
+        let d_addr = self.word().operand5();
+        let x_addr = self.xyz_reg(XYZReg::X);
+        let d = self.gprg(d_addr);
+        self.set_xyz_reg(XYZReg::X, x_addr + 1);
+        self.set_gprg(x_addr as usize, d);
+        self.pc_increment();
+    }
+
+    fn st3(&mut self) {
+        let d_addr = self.word().operand5();
+        let x_addr = self.xyz_reg(XYZReg::X) - 1;
+        let d = self.gprg(d_addr);
+        self.set_xyz_reg(XYZReg::X, x_addr);
+        self.set_gprg(x_addr as usize, d);
+        self.pc_increment();
+    }
+
+    fn cp(&mut self) {
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let res = d.wrapping_sub(r);
+        self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status(Sreg::C, d < r);
+        self.pc_increment();
+    }
+
+    fn cpi(&mut self) {
+        let (k, d_addr) = self.word().operand84();
+        let d = self.gprg(d_addr);
+        let res = d.wrapping_sub(k);
+        // self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status(Sreg::C, d < k);
+        self.pc_increment();
+    }
+
     fn cpc(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-        let c = if self.status(Sreg::C) { 1u8 } else { 0u8 };
-        let result = d.wrapping_sub(r).wrapping_sub(c);
-    
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, result));
-        self.set_status(Sreg::V, has_2complement_overflow(d, r, result));
-        self.set_status(Sreg::N, msb(result));
-        if result == 0 {
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let c = self.status_as_u8(Sreg::C);
+        let res = d.wrapping_sub(r).wrapping_sub(c);
+        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
+        self.set_status(Sreg::V, has_2complement_overflow(d, r, res));
+        self.set_status(Sreg::N, msb(res));
+        if res == 0 {
             self.set_status(Sreg::Z, false);
         }
         self.set_status(Sreg::C, d < r+c);
         self.signed_test();
-    
         self.pc_increment();
     }
-    
+
     fn cpse(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
         if r == d {
             // WIP: ATmega328p is 16bit Program Counter machine...
             self.set_pc(self.pc()+2);
@@ -480,69 +442,49 @@ pub trait AVRInstruction: AVR {
             self.pc_increment();
         }
     }
-    
+
     fn ori(&mut self) {
-        let (k, d_addr) = operand84(self.word());
-        // there is a 16 addr offset
-        let d = self.gprg(d_addr as usize + 16);
-        let result = d | k;
-        self.set_gprg(d_addr as usize, result);
-    
-        self.set_status(Sreg::V, false);
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.signed_test();
+        let (k, d_addr) = self.word().operand84();
+        let d = self.gprg(d_addr);
+        let res = d | k;
+        self.set_gprg(d_addr, res);
+        self.set_status_by_bit_instruction(res);
         self.pc_increment();
     }
-    
+
     fn and(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-        let result = d & r;
-        self.set_gprg(d_addr as usize, result);
-    
-        self.set_status(Sreg::V, false);
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.signed_test();
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let res = d & r;
+        self.set_gprg(d_addr, res);
+        self.set_status_by_bit_instruction(res);
         self.pc_increment();
     }
-    
+
     fn andi(&mut self) {
-        let (k, d_addr) = operand84(self.word());
-        // there is a 16 addr offset
-        let d = self.gprg(( d_addr + 16 ) as usize);
-        let result = d & k;
-        self.set_gprg(d_addr as usize, result);
-    
-        self.set_status(Sreg::V, false);
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.signed_test();
+        let (k, d_addr) = self.word().operand84();
+        let d = self.gprg(d_addr);
+        let res = d & k;
+        self.set_gprg(d_addr, res);
+        self.set_status_by_bit_instruction(res);
         self.pc_increment();
     }
-    
+
     fn eor(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        let d = self.gprg(d_addr as usize);
-    
-        let result = d^r;
-        self.set_gprg(d_addr as usize, result);
-    
-        self.set_status(Sreg::V, false);
-        self.set_status(Sreg::N, msb(result));
-        self.set_status(Sreg::Z, result == 0);
-        self.signed_test();
+        let (r_addr, d_addr) = self.word().operand55();
+        let (r, d) = self.gprgs(r_addr, d_addr);
+        let res = d^r;
+        self.set_gprg(d_addr, res);
+        self.set_status_by_bit_instruction(res);
         self.pc_increment();
     }
 
     fn breq(&mut self) {
         if self.status(Sreg::Z) {
-            let k = operand7(self.word()) as u32;
+            let k = self.word().operand7();
             let pc = self.pc();
-            self.set_pc(pc+k+1);
+            let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
+            self.set_pc(result);
         } else {
             self.pc_increment();
         }
@@ -552,16 +494,16 @@ pub trait AVRInstruction: AVR {
         if self.status(Sreg::Z) {
             self.pc_increment();
         } else {
-            let k = operand7(self.word());
+            let k = self.word().operand7();
             let pc = self.pc();
             let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
             self.set_pc(result as u32);
         }
     }
-    
+
     fn brcs(&mut self) {
         if self.status(Sreg::C) {
-            let k = operand7(self.word());
+            let k = self.word().operand7();
             let pc = self.pc();
             let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
             self.set_pc(result as u32);
@@ -569,15 +511,11 @@ pub trait AVRInstruction: AVR {
             self.pc_increment();
         }
     }
-    
-    // WIP
+
     fn sbis(&mut self) {
-        let (a_addr, b) = operand53(self.word());
+        let (a_addr, b) = self.word().operand53();
         // I/O Register starts from 0x20(0x32), so there is offset.
         let a = self.gprg(( a_addr + 0x20 ) as usize);
-        println!("||||||||| a_addr = {}", a_addr+0x20);
-        println!("||||||||| a = {}", a);
-        println!("||||||||| b = {}", b);
         if bit(a, b) {
             // WIP: ATmega328p is 16bit Program Counter machine...
             self.set_pc(self.pc()+2);
@@ -599,31 +537,35 @@ pub trait AVRInstruction: AVR {
     fn ret(&mut self) {
         // WIP: ATmega328p is 16bit Program Counter machine...
         let pc = self.pop_pc_stack();
-        println!("|||||||||| pc = {:x}", pc);
         self.set_pc(pc as u32);
     }
 
     fn push(&mut self) {
-        let d_addr = operand5(self.word());
-        let d = self.gprg(d_addr as usize);
+        let d_addr = self.word().operand5();
+        let d = self.gprg(d_addr);
         self.push_stack(d);
-        println!("|||||||||| push, R{} = {:x}", d_addr, d);
+        self.pc_increment();
+    }
+
+    fn pop(&mut self) {
+        let d_addr = self.word().operand5();
+        let s = self.pop_stack();
+        self.set_gprg(d_addr, s);
         self.pc_increment();
     }
 
     fn mov(&mut self) {
-        let (r_addr, d_addr) = operand55(self.word());
-        let r = self.gprg(r_addr as usize);
-        self.set_gprg(d_addr as usize, r);
+        let (r_addr, d_addr) = self.word().operand55();
+        let r = self.gprg(r_addr);
+        self.set_gprg(d_addr, r);
         self.pc_increment();
     }
 
     fn movw(&mut self) {
-        let (d_addr, r_addr) = operand55(self.word());
-        let rl = self.gprg(r_addr as usize);
-        let rh = self.gprg(( r_addr+1 ) as usize);
-        self.set_gprg(d_addr as usize, rl);
-        self.set_gprg(( d_addr + 1 ) as usize, rh);
+        let (d_addr, r_addr) = self.word().operand44();
+        let (rl, rh) = self.gprgs(r_addr, r_addr+1);
+        self.set_gprg(d_addr, rl);
+        self.set_gprg(d_addr + 1, rh);
         self.pc_increment();
     }
 }
