@@ -126,7 +126,6 @@ pub fn test_decode_instr() {
 
 pub trait AVRInstruction: AVR {
     fn exec(&mut self, i: &Instr) {
-        println!("||| ^-- instruction : {:?}", i);
         match i {
             &Instr::ADD   => self.add(),
             &Instr::ADC   => self.adc(),
