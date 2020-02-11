@@ -1,4 +1,3 @@
-use super::avr::*;
 use super::word::*;
 
 pub fn operand(word: u16, mask: u16) -> u16 {

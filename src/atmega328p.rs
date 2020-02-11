@@ -1,4 +1,3 @@
-use std::process;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use super::avr::*;
@@ -192,7 +191,7 @@ impl SRAM {
 
 impl Memory<u8> for EEPROM {
     fn get(&self, a: usize) -> u8 {
-        0u8
+        self.0[a]
     }
     fn set(&mut self, a: usize, v: u8) {
         self.0[a] = v;

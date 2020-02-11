@@ -1,4 +1,3 @@
-use std::iter::IntoIterator;
 use super::utils::*;
 use super::word::*;
 
@@ -132,6 +131,7 @@ Status Register: {:08b}"#,
     }
 }
 
+// Status Register
 #[derive(Eq, PartialEq, Debug)]
 pub enum Sreg { I, T, H, S, V, N, Z, C }
 
