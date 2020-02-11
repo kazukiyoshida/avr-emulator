@@ -8,7 +8,7 @@ use super::word::*;
 
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub enum Instr {
-    ADD, ADC, SUB, SBC, SUBI, SBCI, DEC,
+    ADD, ADC, SUB, SBC, SUBI, SBCI, SBIW, DEC, COM,
     LD1, LD2, LD3, LDI, LDS, OUT, IN,
     NOP,
     CALL, RCALL,
@@ -16,10 +16,10 @@ pub enum Instr {
     AND, ANDI, EOR, ORI,
     STS, ST1, ST2, ST3,
     LPM1, LPM2, LPM3,
-    CPI, CPC, CPSE,
+    CP, CPI, CPC, CPSE,
     BREQ, BRNE, BRCS, SBIS,
     SEI, CLI,
-    RET, PUSH,
+    RET, PUSH, POP,
     MOV, MOVW,
 }
 
@@ -34,7 +34,9 @@ lazy_static! {
         m.insert(Instr::SBC,   Opcode(0b0000_1000_0000_0000, 0b1111_1100_0000_0000));
         m.insert(Instr::SUBI,  Opcode(0b0101_0000_0000_0000, 0b1111_0000_0000_0000));
         m.insert(Instr::SBCI,  Opcode(0b0100_0000_0000_0000, 0b1111_0000_0000_0000));
+        m.insert(Instr::SBIW,  Opcode(0b1001_0111_0000_0000, 0b1111_1111_0000_0000));
         m.insert(Instr::DEC,   Opcode(0b1001_0100_0000_1010, 0b1111_1110_0000_1111));
+        m.insert(Instr::COM,   Opcode(0b1001_0100_0000_0000, 0b1111_1110_0000_1111));
         m.insert(Instr::LDI,   Opcode(0b1110_0000_0000_0000, 0b1111_0000_0000_0000));
         m.insert(Instr::LD1,   Opcode(0b1001_0000_0000_1100, 0b1111_1110_0000_1111));
         m.insert(Instr::LD2,   Opcode(0b1001_0000_0000_1101, 0b1111_1110_0000_1111));
@@ -58,6 +60,7 @@ lazy_static! {
         m.insert(Instr::LPM1,  Opcode(0b1001_0101_1100_1000, 0b1111_1111_1111_1111));
         m.insert(Instr::LPM2,  Opcode(0b1001_0000_0000_0100, 0b1111_1110_0000_1111));
         m.insert(Instr::LPM3,  Opcode(0b1001_0000_0000_0101, 0b1111_1110_0000_1111));
+        m.insert(Instr::CP,    Opcode(0b0001_0100_0000_0000, 0b1111_1100_0000_0000));
         m.insert(Instr::CPI,   Opcode(0b0011_0000_0000_0000, 0b1111_0000_0000_0000));
         m.insert(Instr::CPC,   Opcode(0b0000_0100_0000_0000, 0b1111_1100_0000_0000));
         m.insert(Instr::CPSE,  Opcode(0b0001_0000_0000_0000, 0b1111_1100_0000_0000));
@@ -69,6 +72,7 @@ lazy_static! {
         m.insert(Instr::CLI,   Opcode(0b1001_0100_1111_1000, 0b1111_1111_1111_1111));
         m.insert(Instr::RET,   Opcode(0b1001_0101_0000_1000, 0b1111_1111_1111_1111));
         m.insert(Instr::PUSH,  Opcode(0b1001_0010_0000_1111, 0b1111_1110_0000_1111));
+        m.insert(Instr::POP,   Opcode(0b1001_0000_0000_1111, 0b1111_1110_0000_1111));
         m.insert(Instr::MOV,   Opcode(0b0010_1100_0000_0000, 0b1111_1100_0000_0000));
         m.insert(Instr::MOVW,  Opcode(0b0000_0001_0000_0000, 0b1111_1111_0000_0000));
         m
@@ -131,6 +135,7 @@ pub trait AVRInstruction: AVR {
             &Instr::SUBI  => self.subi(),
             &Instr::SBCI  => self.sbci(),
             &Instr::DEC   => self.dec(),
+            &Instr::COM   => self.com(),
             &Instr::LDI   => self.ldi(),
             &Instr::LD1   => self.ld1(),
             &Instr::LD2   => self.ld2(),
@@ -154,6 +159,7 @@ pub trait AVRInstruction: AVR {
             &Instr::LPM1  => self.lpm1(),
             &Instr::LPM2  => self.lpm2(),
             &Instr::LPM3  => self.lpm3(),
+            &Instr::CP    => self.cp(),
             &Instr::CPI   => self.cpi(),
             &Instr::CPC   => self.cpc(),
             &Instr::CPSE  => self.cpse(),
@@ -161,10 +167,12 @@ pub trait AVRInstruction: AVR {
             &Instr::BRNE  => self.brne(),
             &Instr::BRCS  => self.brcs(),
             &Instr::SBIS  => self.sbis(),
+            &Instr::SBIW  => self.sbiw(),
             &Instr::SEI   => self.sei(),
             &Instr::CLI   => self.cli(),
             &Instr::RET   => self.ret(),
             &Instr::PUSH  => self.push(),
+            &Instr::POP   => self.pop(),
             &Instr::MOV   => self.mov(),
             &Instr::MOVW  => self.movw(),
         };
@@ -212,10 +220,20 @@ pub trait AVRInstruction: AVR {
         self.set_status(Sreg::N, msb(result));
         self.set_status(Sreg::Z, result == 0);
         self.signed_test();
-    
+
         self.pc_increment();
     }
-    
+
+    fn com(&mut self) {
+        let d_addr = self.word().operand5();
+        let d = self.gprg(d_addr);
+        let res = 0xff - d;
+        self.set_gprg(d_addr, res);
+        self.set_status_by_bit_instruction(res);
+        self.set_status(Sreg::C, false);
+        self.pc_increment();
+    }
+
     fn sub(&mut self) {
         let (r_addr, d_addr) = self.word().operand55();
         let (r, d) = self.gprgs(r_addr, d_addr);
@@ -523,7 +541,22 @@ pub trait AVRInstruction: AVR {
             self.pc_increment();
         }
     }
-    
+
+    fn sbiw(&mut self) {
+        let (k, d_addr) = self.word().operand62();
+        let (dh, dl) = self.gprgs(d_addr+1, d_addr);
+        let result = concat(dh, dl).wrapping_sub(k as u16);
+        self.set_gprg(d_addr+1, high_bit(result));
+        self.set_gprg(d_addr,   low_bit(result));
+
+        self.set_status(Sreg::V, msb(high_bit(result)) & !msb(dh));
+        self.set_status(Sreg::C, msb(high_bit(result)) & !msb(dh));
+        self.set_status(Sreg::N, msb(high_bit(result)));
+        self.set_status(Sreg::Z, result == 0);
+        self.signed_test();
+        self.pc_increment();
+    }
+
     fn sei(&mut self) {
         self.set_status(Sreg::I, true);
         self.pc_increment();
