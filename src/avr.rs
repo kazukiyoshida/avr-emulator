@@ -1,3 +1,4 @@
+use std::fmt::{ LowerHex };
 use super::utils::*;
 use super::word::*;
 use super::instruction::*;
@@ -134,6 +135,19 @@ instruction:     {:?} ({:#04x}) "#,
         );
     }
 
+    fn view_registers(&self) {
+        for i in 0..8 {
+            let i = i * 4;
+            println!(
+                "R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x},",
+                i,   self.gprg(i),
+                i+1, self.gprg(i+1),
+                i+2, self.gprg(i+2),
+                i+3, self.gprg(i+3)
+            );
+        }
+    }
+
 }
 
 // Status Register
@@ -144,7 +158,33 @@ pub enum Sreg { I, T, H, S, V, N, Z, C }
 #[derive(Eq, PartialEq, Debug)]
 pub enum Preg { X, Y, Z }
 
-pub trait Memory<T> {
+pub trait Memory<T>
+where T: LowerHex
+{
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
+
+    fn view_memory(&self, unit: u8, length: usize) {
+        print!("\x1B[2J"); // clear console
+        for i in 0..length {
+            let i = i * 8;
+            if unit == 2 {
+                println!(
+                    "{:#06x} | {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
+                    i*2,
+                    self.get(i+0), self.get(i+1), self.get(i+2), self.get(i+3),
+                    self.get(i+4), self.get(i+5), self.get(i+6), self.get(i+7),
+                );
+            } else if unit == 4 {
+                println!(
+                    "{:#06x} | {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x}",
+                    i*2,
+                    self.get(i+0), self.get(i+1), self.get(i+2), self.get(i+3),
+                    self.get(i+4), self.get(i+5), self.get(i+6), self.get(i+7),
+                );
+            } else {
+                return
+            };
+        }
+    }
 }

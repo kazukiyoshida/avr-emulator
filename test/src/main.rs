@@ -10,11 +10,16 @@ pub const SAMPLE_FILE_NAME: &str = "../sample/avr_studio/led_flashing/led_flashi
 fn main() {
     let mut avr = ATmega328P::new();
     avr.load_hex(SAMPLE_FILE_NAME);
-    for _ in 0..5 {
+
+    avr.flash_memory.view_memory(4u8, 20);
+    std::io::stdin().read_line(&mut String::new()).ok();
+
+    for _ in 0..10 {
         let w = avr.word();
         match decode_instr(w) {
             Some(i) => {
                 avr.view_processor_status(i);
+                avr.view_registers();
                 avr.exec(i);
             },
             None => process::exit(1),
