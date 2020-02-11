@@ -3,21 +3,26 @@ use super::utils::*;
 use super::word::*;
 
 pub trait AVR {
-    // Program Counter 
+    // Program Counter
     // AVR has 16 or 22 bit program counter.
     // ATmega328p is 16bit PC machine. We need to implement 22bit models soon.
     fn pc(&self) -> u32;
+
     fn set_pc(&mut self, v: u32);
+
     fn pc_increment(&mut self) {
         self.set_pc(self.pc() + 1);
     }
+
     fn pc_double_increment(&mut self) {
         self.set_pc(self.pc() + 2);
     }
 
     // Stack Pointer
     fn sp(&self) -> u16;
+
     fn push_stack(&mut self, v: u8);
+
     fn pop_stack(&mut self) -> u8;
 
     fn push_pc_stack(&mut self, v: u32) {
@@ -36,9 +41,20 @@ pub trait AVR {
     // General Purpose Register
     // 先頭の 0~31 要素が汎用レジスタに当たる.
     fn gprg(&self, addr: usize) -> u8;
+
     fn set_gprg(&mut self, addr: usize, v: u8);
 
-    fn xyz_reg_addresses(&self, x: XYZReg) -> (usize, usize);
+    fn gprgs(&self, addr1: usize, addr2: usize) -> (u8, u8) {
+        (self.gprg(addr1), self.gprg(addr2))
+    }
+
+    fn xyz_reg_addresses(&self, x: XYZReg) -> (usize, usize) {
+        match x {
+            XYZReg::X => (27, 26),
+            XYZReg::Y => (29, 28),
+            XYZReg::Z => (31, 30),
+        }
+    }
 
     fn xyz_reg(&self, x: XYZReg) -> u16 {
         let (h, l) = self.xyz_reg_addresses(x);
@@ -58,73 +74,71 @@ pub trait AVR {
     fn word(&self) -> Word {
         Word(self.fetch(self.pc()))
     }
+
     fn double_word(&self) -> (Word, Word) {
         (Word(self.fetch(self.pc())),
          Word(self.fetch(self.pc()+1)))
     }
 
+    fn sreg(&self) -> u8;
+
     fn status(&self, s: Sreg) -> bool;
+
     fn set_status(&mut self, s: Sreg, v: bool);
+
+    fn status_as_u8(&self, s: Sreg) -> u8 {
+        if self.status(s) { 1u8 } else { 0u8 }
+    }
+
+    fn set_status_by_arithmetic_instruction(&mut self, d: u8, r: u8, res: u8) {
+        // WIP: Updating algorithm of status bit is not optimized
+        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
+        self.set_status(Sreg::V, has_2complement_overflow(d, r, res));
+        self.set_status(Sreg::N, msb(res));
+        self.set_status(Sreg::Z, res == 0);
+        self.signed_test();
+    }
+
+    fn set_status_by_bit_instruction(&mut self, res: u8) {
+        // WIP: Updating algorithm of status bit is not optimized
+        self.set_status(Sreg::V, false);
+        self.set_status(Sreg::N, msb(res));
+        self.set_status(Sreg::Z, res == 0);
+        self.signed_test();
+    }
 
     fn signed_test(&mut self) {
         let s = self.status(Sreg::V) ^ self.status(Sreg::N);
         self.set_status(Sreg::S, s);
     }
+
+    fn view_processor_status(&self) {
+        let s = format!(
+r#"
+Program Counter: {:#08x} (Hexfile = {:x})
+Stack Pointer:   {:#04x}
+X Register:      {:#04x}
+Y Register:      {:#04x}
+Z Register:      {:#04x}
+Status Register: {:08b}"#,
+            self.pc(), self.pc()*2,
+            self.sp(),
+            self.xyz_reg(XYZReg::X),
+            self.xyz_reg(XYZReg::Y),
+            self.xyz_reg(XYZReg::Z),
+            self.sreg(),
+        );
+        println!("{}", s);
+    }
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub enum Sreg { I, T, H, S, V, N, Z, C }
+
+#[derive(Eq, PartialEq, Debug)]
 pub enum XYZReg { X, Y, Z }
 
 pub trait Memory<T> {
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct Word(pub u16);
-
-impl Word {
-    pub fn high(&self) -> u8 {
-        high_bit(self.0)
-    }
-    pub fn low(&self) -> u8 {
-        low_bit(self.0)
-    }
-}
-
-pub struct WordIter {
-    seeker: u8,
-    word: u16,
-}
-
-impl IntoIterator for Word {
-    type Item = bool;
-    type IntoIter = WordIter;
-    fn into_iter(self) -> Self::IntoIter {
-        WordIter {
-            seeker: 0,
-            word: self.0,
-        }
-    }
-}
-
-impl Iterator for WordIter {
-    type Item = bool;
-
-    // Seek each bit from right to left.
-    fn next(&mut self) -> Option<bool> {
-        if self.seeker >= 16 {
-            return None
-        }
-        let bit = ( self.word & ( 1 << self.seeker )) >> self.seeker;
-        self.seeker += 1;
-        Some(bit == 1)
-    }
-}
-
-#[test]
-fn test_u8_word() {
-    let w = Word(0b00001111_11110000);
-    assert_eq!(0b00001111, w.high());
-    assert_eq!(0b11110000, w.low());
 }

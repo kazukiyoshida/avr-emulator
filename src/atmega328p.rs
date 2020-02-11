@@ -1,3 +1,4 @@
+use std::process;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use super::avr::*;
@@ -7,7 +8,7 @@ use super::utils::*;
 
 pub const GENERAL_PURPOSE_REGISTER_SIZE: usize = 32;
 pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB. 16bit(~0xffff)で表現可能.
-pub const SRAM_SIZE: usize = 0xffff;          // = 0d2048  = 2 KiB
+pub const SRAM_SIZE: usize = 0x8ff;          // = 0d2048  = 2 KiB
 pub const EEPROM_SIZE: usize = 0x400;        // = 0d1024  = 1 KiB
 pub const STATUS_REGISTER: usize = 0x5f;
 pub const STACK_POINTER_H: usize = 0x5e;
@@ -58,28 +59,25 @@ impl AVR for ATmega328P {
         self.sram.set(addr, v)
     }
 
-    fn xyz_reg_addresses(&self, x: XYZReg) -> (usize, usize) {
-        match x {
-            X => (27, 26),
-            Y => (29, 28),
-            Z => (31, 30),
-        }
-    }
-
     fn fetch(&self, p: u32) -> u16 {
         self.flash_memory.get(p as usize)
     }
 
+    fn sreg(&self) -> u8 {
+        self.sram.0[STATUS_REGISTER]
+    }
+
     fn status(&self, s: Sreg) -> bool {
-        bit(self.sram.0[STATUS_REGISTER], self.status_register_map(s))
+        bit(self.sram.0[STATUS_REGISTER], self.status_register_map(&s))
     }
 
     fn set_status(&mut self, s: Sreg, v: bool) {
-        let n = self.status_register_map(s);
-        if v { 
-            self.sram.0[STATUS_REGISTER] = self.sram.0[STATUS_REGISTER] | ( 1 << n );
-        } else { 
-            self.sram.0[STATUS_REGISTER] = self.sram.0[STATUS_REGISTER] ^ ( 1 << n );
+        let n = self.status_register_map(&s);
+        let sreg = &mut self.sram.0[STATUS_REGISTER];
+        if v {
+            *sreg = *sreg | ( 1 << n );
+        } else {
+            *sreg = *sreg & ( *sreg ^ ( 1 << n ) );
         };
     }
 }
@@ -98,8 +96,8 @@ impl ATmega328P {
         }
     }
 
-    pub fn status_register_map(&self, s: Sreg) -> u8 {
-        match s {
+    pub fn status_register_map(&self, s: &Sreg) -> u8 {
+        match *s {
             Sreg::I => 7,
             Sreg::T => 6,
             Sreg::H => 5,
@@ -140,47 +138,17 @@ impl ATmega328P {
 #[test]
 fn test_atmega328p() {
     let mut avr = ATmega328P::new();
-    avr.load_hex("sample/led_flashing/led_flashing.ino.standard.hex");
-
-    for _ in 0..200 {
+    avr.load_hex("sample/set_pinmode/set_pinmode.ino.standard.hex");
+    // while ( avr.pc() as usize ) < FLASH_MEMORY_SIZE {
+    for _ in 0..28 {
         let w = avr.word();
-        println!("\n||| PC = {:x} = {} ( PC on hexfile = {:x} = {})", avr.pc(), avr.pc(), avr.pc()*2, avr.pc()*2);
-        println!("|||  w = {:016b}", w.0);
-
-        println!("|||");
-
-        if avr.sp() < RAMEND-3 { 
-        println!("|||                | {:#x} |", avr.gprg((avr.sp()+4u16) as usize));
-        } else if avr.sp() == RAMEND-3 {
-        println!("|||                |-------|");
-        }
-
-        if avr.sp() < RAMEND-2 { 
-        println!("|||                | {:#x} |", avr.gprg((avr.sp()+3u16) as usize));
-        } else if avr.sp() == RAMEND-2 {
-        println!("|||                |-------|");
-        }
-
-        if avr.sp() < RAMEND-1 { 
-        println!("|||                | {:#x} |", avr.gprg((avr.sp()+2u16) as usize));
-        } else if avr.sp() == RAMEND-1 {
-        println!("|||                |-------|");
-        }
-
-        if avr.sp() < RAMEND { 
-        println!("|||                | {:#x} |", avr.gprg((avr.sp()+1u16) as usize));
-        } else if avr.sp() == RAMEND {
-        println!("|||                |-------|");
-        }
-
-        println!("|||  sp = {:#x} -> | {:#x} |", avr.sp(), avr.gprg(avr.sp() as usize));
-        println!("|||                | {:#x} |", avr.gprg((avr.sp()-1u16) as usize));
-        println!("|||");
-
-        let instr = decode_instr(w);
-        match instr {
-            Some(i) => avr.exec(i),
-            None    => println!("!!!!!!!!! panic !!!!!!!"),
+        avr.view_processor_status();
+        match decode_instr(w) {
+            Some(i) => {
+                println!("word: {:#04x} -> {:?}", w.0, i);
+                avr.exec(i);
+            },
+            None    => process::exit(1),
         }
     }
 }
