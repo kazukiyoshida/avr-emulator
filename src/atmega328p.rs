@@ -122,7 +122,7 @@ impl ATmega328P {
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
-                self.flash_memory.set(memory_addr, ( c << 12 | d << 8 | a << 4 | b ) as u16);
+                self.flash_memory.set(memory_addr, ( a << 12 | b << 8 | c << 4 | d ) as u16);
                 memory_addr += 1;
             }
         }
@@ -135,8 +135,11 @@ pub struct EEPROM([u8; EEPROM_SIZE]);
 
 impl Memory<u16> for FlashMemory {
     fn get(&self, a: usize) -> u16 {
-        self.0[a]
+        let n = self.0[a];
+        ( ( n & 0xff ) << 8 ) | ( n >> 8 )
     }
+
+    // WIP
     fn set(&mut self, a: usize, v: u16) {
         self.0[a] = v;
     }

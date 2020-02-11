@@ -360,7 +360,7 @@ pub trait AVRInstruction: AVR {
     fn jmp(&mut self) {
         let (w1, w2) = self.double_word();
         let k = w1.operand22(w2);
-        self.set_pc(k)
+        self.set_pc(k);
         self.cycle_increment(3);
     }
 
@@ -458,7 +458,7 @@ pub trait AVRInstruction: AVR {
         let (k, d_addr) = self.word().operand84();
         let d = self.gprg(d_addr);
         let res = d.wrapping_sub(k);
-        // self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status_by_arithmetic_instruction(d, k, res);
         self.set_status(Sreg::C, d < k);
         self.pc_increment();
         self.cycle_increment(1);

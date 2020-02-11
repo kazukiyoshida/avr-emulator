@@ -175,7 +175,7 @@ where T: LowerHex
             if unit == 2 {
                 println!(
                     "{:#06x} | {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-                    i*2,
+                    i,
                     self.get(i+0), self.get(i+1), self.get(i+2), self.get(i+3),
                     self.get(i+4), self.get(i+5), self.get(i+6), self.get(i+7),
                 );
