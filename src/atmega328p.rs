@@ -1,13 +1,13 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use super::avr::*;
 use super::instruction::*;
 use super::utils::*;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 pub const GENERAL_PURPOSE_REGISTER_SIZE: usize = 32;
 pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB. 16bit(~0xffff)で表現可能.
-pub const SRAM_SIZE: usize = 0x8ff;          // = 0d2048  = 2 KiB
-pub const EEPROM_SIZE: usize = 0x400;        // = 0d1024  = 1 KiB
+pub const SRAM_SIZE: usize = 0x8ff; // = 0d2048  = 2 KiB
+pub const EEPROM_SIZE: usize = 0x400; // = 0d1024  = 1 KiB
 pub const STATUS_REGISTER: usize = 0x5f;
 pub const STACK_POINTER_H: usize = 0x5e;
 pub const STACK_POINTER_L: usize = 0x5d;
@@ -31,7 +31,10 @@ impl AVR for ATmega328P {
     }
 
     fn sp(&self) -> u16 {
-        concat(self.sram.get(STACK_POINTER_H), self.sram.get(STACK_POINTER_L))
+        concat(
+            self.sram.get(STACK_POINTER_H),
+            self.sram.get(STACK_POINTER_L),
+        )
     }
 
     fn push_stack(&mut self, v: u8) {
@@ -42,7 +45,7 @@ impl AVR for ATmega328P {
     }
 
     fn pop_stack(&mut self) -> u8 {
-        let v = self.gprg((self.sp()+1u16) as usize);
+        let v = self.gprg((self.sp() + 1u16) as usize);
         let new_sp = self.sp() + 1;
         self.sram.set(STACK_POINTER_H, high_bit(new_sp));
         self.sram.set(STACK_POINTER_L, low_bit(new_sp));
@@ -81,9 +84,9 @@ impl AVR for ATmega328P {
         let n = s as u8;
         let sreg = &mut self.sram.0[STATUS_REGISTER];
         if v {
-            *sreg = *sreg | ( 1 << n );
+            *sreg = *sreg | (1 << n);
         } else {
-            *sreg = *sreg & ( *sreg ^ ( 1 << n ) );
+            *sreg = *sreg & (*sreg ^ (1 << n));
         };
     }
 }
@@ -94,7 +97,7 @@ impl ATmega328P {
     pub fn new() -> ATmega328P {
         let mut sram = SRAM::new();
         sram.set_word(STACK_POINTER_L, RAMEND);
-        ATmega328P{
+        ATmega328P {
             flash_memory: FlashMemory::new(),
             sram: sram,
             eeprom: EEPROM::new(),
@@ -115,14 +118,17 @@ impl ATmega328P {
             let record_type = &line[7..9];
             let data = &line[9..line.len() - 2];
 
-            if record_type != "00" { continue; }
+            if record_type != "00" {
+                continue;
+            }
 
             for list in data.chars().collect::<Vec<char>>().chunks(4) {
                 let a = list[0].to_digit(16).unwrap();
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
-                self.flash_memory.set(memory_addr, ( a << 12 | b << 8 | c << 4 | d ) as u16);
+                self.flash_memory
+                    .set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
                 memory_addr += 1;
             }
         }
@@ -136,7 +142,7 @@ pub struct EEPROM([u8; EEPROM_SIZE]);
 impl Memory<u16> for FlashMemory {
     fn get(&self, a: usize) -> u16 {
         let n = self.0[a];
-        ( ( n & 0xff ) << 8 ) | ( n >> 8 )
+        ((n & 0xff) << 8) | (n >> 8)
     }
 
     // WIP
@@ -147,7 +153,7 @@ impl Memory<u16> for FlashMemory {
 
 impl FlashMemory {
     fn new() -> FlashMemory {
-        FlashMemory( [0; FLASH_MEMORY_SIZE] )
+        FlashMemory([0; FLASH_MEMORY_SIZE])
     }
 }
 
@@ -161,11 +167,13 @@ impl Memory<u8> for SRAM {
 }
 
 impl SRAM {
-    fn new() -> SRAM { SRAM([0; SRAM_SIZE]) }
+    fn new() -> SRAM {
+        SRAM([0; SRAM_SIZE])
+    }
 
     fn set_word(&mut self, a: usize, v: u16) {
         self.set(a, low_bit(v));
-        self.set(a+1, high_bit(v));
+        self.set(a + 1, high_bit(v));
     }
 }
 
@@ -179,7 +187,9 @@ impl Memory<u8> for EEPROM {
 }
 
 impl EEPROM {
-    fn new() -> EEPROM { EEPROM([0; EEPROM_SIZE]) }
+    fn new() -> EEPROM {
+        EEPROM([0; EEPROM_SIZE])
+    }
 }
 
 #[test]
@@ -188,4 +198,3 @@ fn test_flash_memory() {
     m.set(0xf, 0xffff);
     assert_eq!(m.get(0xf), 0xffff);
 }
-

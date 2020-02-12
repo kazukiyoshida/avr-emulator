@@ -1,7 +1,9 @@
-#[macro_use] extern crate itertools;
+#[macro_use]
+extern crate itertools;
 
-pub mod instruction;
-pub mod avr;
-pub mod word;
 pub mod atmega328p;
+pub mod avr;
+pub mod instruction;
+pub mod logger;
 pub mod utils;
+pub mod word;
