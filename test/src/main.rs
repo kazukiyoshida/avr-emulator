@@ -4,12 +4,15 @@ use std::process;
 use avr_emulator::instruction::*;
 use avr_emulator::atmega328p::*;
 use avr_emulator::avr::*;
+use avr_emulator::logger::*;
 
 pub const SAMPLE_FILE_NAME: &str = "../sample/avr_studio/led_flashing/led_flashing.hex";
 
 fn main() {
     let mut avr = ATmega328P::new();
     avr.load_hex(SAMPLE_FILE_NAME);
+
+    let mut logger = Logger::new();
 
     print!("\x1B[2J");
     println!(">>> Flash Memory \n");
@@ -21,12 +24,10 @@ fn main() {
         let w = avr.word();
         match decode_instr(w) {
             Some(i) => {
-                print!("\x1B[2J");
-                println!(">>> Processor Status");
-                avr.view_processor_status(i);
+                logger.append(&avr);
 
-                println!(">>> Registers & Mapped IO \n");
-                avr.sram.view_memory(2, 0, 24);
+                print!("\x1B[2J");
+                println!("{}", logger);
 
                 avr.exec(i);
             },

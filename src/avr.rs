@@ -4,6 +4,9 @@ use super::word::*;
 use std::fmt::LowerHex;
 
 pub trait AVR {
+    fn flash_memory(&self) -> &dyn Memory<u16>;
+    fn sram(&self) -> &dyn Memory<u8>;
+
     // Program Counter
     // AVR has 16 or 22 bit program counter.
     // ATmega328p is 16bit PC machine. We need to implement 22bit models soon.

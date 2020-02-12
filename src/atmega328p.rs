@@ -22,6 +22,14 @@ pub struct ATmega328P {
 }
 
 impl AVR for ATmega328P {
+    fn flash_memory(&self) -> &dyn Memory<u16> {
+        &self.flash_memory
+    }
+
+    fn sram(&self) -> &dyn Memory<u8> {
+        &self.sram
+    }
+
     fn pc(&self) -> u32 {
         self.pc
     }
