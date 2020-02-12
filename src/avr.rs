@@ -1,7 +1,7 @@
-use std::fmt::{ LowerHex };
+use super::instruction::*;
 use super::utils::*;
 use super::word::*;
-use super::instruction::*;
+use std::fmt::LowerHex;
 
 pub trait AVR {
     // Program Counter
@@ -28,7 +28,7 @@ pub trait AVR {
 
     fn push_pc_stack(&mut self, v: u32) {
         // WIP: ATmega328p is 16bit Program Counter machine...
-        let w = ( v & 0xffff ) as u16;
+        let w = (v & 0xffff) as u16;
         self.push_stack(high_bit(w));
         self.push_stack(low_bit(w));
     }
@@ -82,8 +82,7 @@ pub trait AVR {
     }
 
     fn double_word(&self) -> (Word, Word) {
-        (Word(self.fetch(self.pc())),
-         Word(self.fetch(self.pc()+1)))
+        (Word(self.fetch(self.pc())), Word(self.fetch(self.pc() + 1)))
     }
 
     fn sreg(&self) -> u8;
@@ -115,7 +114,8 @@ pub trait AVR {
     }
 
     fn view_processor_status(&self, instruction: &Instr) {
-        println!(r#"
+        println!(
+            r#"
 Program Counter: {:#08x} (Hexfile = {:x})
 Stack Pointer:   {:#04x}
 X Register:      {:#04x}
@@ -125,7 +125,8 @@ Status Register: {:08b}
 Cycle Counter:   {}
 instruction:     {:?} ({:#04x})
 "#,
-            self.pc(), self.pc()*2,
+            self.pc(),
+            self.pc() * 2,
             self.sp(),
             self.preg(Preg::X),
             self.preg(Preg::Y),
@@ -142,27 +143,44 @@ instruction:     {:?} ({:#04x})
             let i = i * 4;
             println!(
                 "R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x},",
-                i,   self.gprg(i),
-                i+1, self.gprg(i+1),
-                i+2, self.gprg(i+2),
-                i+3, self.gprg(i+3)
+                i,
+                self.gprg(i),
+                i + 1,
+                self.gprg(i + 1),
+                i + 2,
+                self.gprg(i + 2),
+                i + 3,
+                self.gprg(i + 3)
             );
         }
         println!("");
     }
-
 }
 
 // Status Register
 #[derive(Eq, PartialEq, Debug)]
-pub enum Sreg { C, Z, N, V, S, H, T, I }
+pub enum Sreg {
+    C,
+    Z,
+    N,
+    V,
+    S,
+    H,
+    T,
+    I,
+}
 
 // Pointer Register
 #[derive(Eq, PartialEq, Debug)]
-pub enum Preg { X, Y, Z }
+pub enum Preg {
+    X,
+    Y,
+    Z,
+}
 
 pub trait Memory<T>
-where T: LowerHex
+where
+    T: LowerHex,
 {
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
@@ -174,18 +192,30 @@ where T: LowerHex
                 println!(
                     "{:#06x} | {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
                     i,
-                    self.get(i+0), self.get(i+1), self.get(i+2), self.get(i+3),
-                    self.get(i+4), self.get(i+5), self.get(i+6), self.get(i+7),
+                    self.get(i + 0),
+                    self.get(i + 1),
+                    self.get(i + 2),
+                    self.get(i + 3),
+                    self.get(i + 4),
+                    self.get(i + 5),
+                    self.get(i + 6),
+                    self.get(i + 7),
                 );
             } else if unit == 4 {
                 println!(
                     "{:#06x} | {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x}",
-                    i*2,
-                    self.get(i+0), self.get(i+1), self.get(i+2), self.get(i+3),
-                    self.get(i+4), self.get(i+5), self.get(i+6), self.get(i+7),
+                    i * 2,
+                    self.get(i + 0),
+                    self.get(i + 1),
+                    self.get(i + 2),
+                    self.get(i + 3),
+                    self.get(i + 4),
+                    self.get(i + 5),
+                    self.get(i + 6),
+                    self.get(i + 7),
                 );
             } else {
-                return
+                return;
             };
         }
         println!("");
