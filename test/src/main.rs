@@ -16,7 +16,7 @@ fn main() {
 
     print!("\x1B[2J");
     println!(">>> Flash Memory \n");
-    avr.flash_memory.view_memory(4, 0, 20);
+    println!("{}", logger.memory_status(&avr.flash_memory, 4, 0, 20));
 
     std::io::stdin().read_line(&mut String::new()).ok();
 

@@ -139,7 +139,7 @@ Cycle Counter:   {}"#,
         sum
     }
 
-    fn memory_status<T>(&self, mem: &dyn Memory<T>, unit: u8, from: usize, to: usize) -> String
+    pub fn memory_status<T>(&self, mem: &dyn Memory<T>, unit: u8, from: usize, to: usize) -> String
     where
         T: LowerHex,
     {

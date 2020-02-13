@@ -115,49 +115,6 @@ pub trait AVR {
         let s = self.status(Sreg::V) ^ self.status(Sreg::N);
         self.set_status(Sreg::S, s);
     }
-
-    fn view_processor_status(&self, instruction: &Instr) {
-        println!(
-            r#"
-Program Counter: {:#08x} (Hexfile = {:x})
-Stack Pointer:   {:#04x}
-X Register:      {:#04x}
-Y Register:      {:#04x}
-Z Register:      {:#04x}
-Status Register: {:08b}
-Cycle Counter:   {}
-instruction:     {:?} ({:#04x})
-"#,
-            self.pc(),
-            self.pc() * 2,
-            self.sp(),
-            self.preg(Preg::X),
-            self.preg(Preg::Y),
-            self.preg(Preg::Z),
-            self.sreg(),
-            self.cycle(),
-            instruction,
-            self.word().0,
-        );
-    }
-
-    fn view_registers(&self) {
-        for i in 0..8 {
-            let i = i * 4;
-            println!(
-                "R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x},",
-                i,
-                self.gprg(i),
-                i + 1,
-                self.gprg(i + 1),
-                i + 2,
-                self.gprg(i + 2),
-                i + 3,
-                self.gprg(i + 3)
-            );
-        }
-        println!("");
-    }
 }
 
 // Status Register
@@ -187,40 +144,4 @@ where
 {
     fn get(&self, a: usize) -> T;
     fn set(&mut self, a: usize, v: T);
-
-    fn view_memory(&self, unit: u8, from: usize, to: usize) {
-        for i in from..to {
-            let i = i * 8;
-            if unit == 2 {
-                println!(
-                    "{:#06x} | {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-                    i,
-                    self.get(i + 0),
-                    self.get(i + 1),
-                    self.get(i + 2),
-                    self.get(i + 3),
-                    self.get(i + 4),
-                    self.get(i + 5),
-                    self.get(i + 6),
-                    self.get(i + 7),
-                );
-            } else if unit == 4 {
-                println!(
-                    "{:#06x} | {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x}",
-                    i * 2,
-                    self.get(i + 0),
-                    self.get(i + 1),
-                    self.get(i + 2),
-                    self.get(i + 3),
-                    self.get(i + 4),
-                    self.get(i + 5),
-                    self.get(i + 6),
-                    self.get(i + 7),
-                );
-            } else {
-                return;
-            };
-        }
-        println!("");
-    }
 }
