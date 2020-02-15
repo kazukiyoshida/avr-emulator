@@ -91,7 +91,7 @@ impl AVR for ATmega328P {
     }
 
     fn fetch(&self, p: u32) -> u16 {
-        self.flash_memory.get(p as usize)
+        self.flash_memory.get_by_little_endian(p as usize)
     }
 
     fn sreg(&self) -> u8 {
@@ -148,7 +148,7 @@ impl ATmega328P {
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
                 self.flash_memory
-                    .set(memory_addr, (c << 12 | d << 8 | a << 4 | b) as u16);
+                    .set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
                 memory_addr += 1;
             }
         }
@@ -160,6 +160,7 @@ pub struct SRAM([u8; SRAM_SIZE]);
 pub struct EEPROM([u8; EEPROM_SIZE]);
 
 impl Memory<u16> for FlashMemory {
+    // メモリの内容をそのまま返す
     fn get(&self, a: usize) -> u16 {
         self.0[a]
     }
@@ -174,12 +175,19 @@ impl FlashMemory {
     fn new() -> FlashMemory {
         FlashMemory([0; FLASH_MEMORY_SIZE])
     }
+
+    // メモリの内容をリトルエンディアンとして並び替えて返す
+    pub fn get_by_little_endian(&self, a: usize) -> u16 {
+        let n = self.0[a];
+        ((n & 0xff) << 8) | (n >> 8)
+    }
 }
 
 impl Memory<u8> for SRAM {
     fn get(&self, a: usize) -> u8 {
         self.0[a]
     }
+
     fn set(&mut self, a: usize, v: u8) {
         self.0[a] = v;
     }
