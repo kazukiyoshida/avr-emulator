@@ -4,6 +4,9 @@ use super::word::*;
 use std::fmt::LowerHex;
 
 pub trait AVR {
+    fn execute(&mut self);
+    fn run(&mut self, max_cycle: u64);
+
     fn flash_memory(&self) -> &dyn Memory<u16>;
     fn sram(&self) -> &dyn Memory<u8>;
 

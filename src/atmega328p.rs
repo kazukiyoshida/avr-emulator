@@ -22,6 +22,20 @@ pub struct ATmega328P {
 }
 
 impl AVR for ATmega328P {
+    fn execute(&mut self) {
+        let w = self.word();
+        match decode_instr(w) {
+            Some(i) => self.exec(i),
+            None => (),
+        }
+    }
+
+    fn run(&mut self, max_cycle: u64) {
+        while self.cycle < max_cycle {
+            self.execute();
+        }
+    }
+
     fn flash_memory(&self) -> &dyn Memory<u16> {
         &self.flash_memory
     }
