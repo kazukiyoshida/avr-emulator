@@ -4,6 +4,9 @@ use super::word::*;
 use std::fmt::LowerHex;
 
 pub trait AVR {
+    fn execute(&mut self);
+    fn run(&mut self, max_cycle: u64);
+
     fn flash_memory(&self) -> &dyn Memory<u16>;
     fn sram(&self) -> &dyn Memory<u8>;
 
@@ -14,12 +17,8 @@ pub trait AVR {
 
     fn set_pc(&mut self, v: u32);
 
-    fn pc_increment(&mut self) {
-        self.set_pc(self.pc() + 1);
-    }
-
-    fn pc_double_increment(&mut self) {
-        self.set_pc(self.pc() + 2);
+    fn pc_increment(&mut self, diff: u32) {
+        self.set_pc(self.pc() + diff);
     }
 
     // Stack Pointer
@@ -114,6 +113,17 @@ pub trait AVR {
     fn signed_test(&mut self) {
         let s = self.status(Sreg::V) ^ self.status(Sreg::N);
         self.set_status(Sreg::S, s);
+    }
+
+    fn z_program_memory(&self) -> u8 {
+        let z_addr = self.preg(Preg::Z);
+        if z_addr % 2 == 0 {
+            let addr = z_addr / 2;
+            low_bit(self.fetch(addr as u32))
+        } else {
+            let addr = ( z_addr - 1 ) / 2;
+            high_bit(self.fetch(addr as u32))
+        }
     }
 }
 
