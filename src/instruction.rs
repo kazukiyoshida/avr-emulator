@@ -299,7 +299,7 @@ pub fn test_decode_instr() {
     assert_eq!(None, decode_instr(Word(0b1111_1111_1111_1111)));
 }
 
-pub trait AVRInstruction: AVR {
+pub trait AVRExecutable: AVR {
     fn exec(&mut self, i: &Instr) {
         match i {
             &Instr::ADD => self.add(),

@@ -99,7 +99,7 @@ impl AVR for ATmega328P {
     }
 }
 
-impl AVRInstruction for ATmega328P {}
+impl AVRExecutable for ATmega328P {}
 
 impl ATmega328P {
     pub fn new() -> ATmega328P {
