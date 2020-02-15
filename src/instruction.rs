@@ -619,33 +619,21 @@ pub trait AVRExecutable: AVR {
     }
 
     fn lpm1(&mut self) {
-        if (self.preg(Preg::Z) & 1) == 1 {
-            self.set_gprg(0, high_bit(self.preg(Preg::Z)));
-        } else {
-            self.set_gprg(0, low_bit(self.preg(Preg::Z)));
-        }
+        self.set_gprg(0, self.z_program_memory());
         self.pc_increment(1);
         self.cycle_increment(3);
     }
 
     fn lpm2(&mut self) {
         let d_addr = self.word().operand5();
-        if (self.preg(Preg::Z) & 1) == 1 {
-            self.set_gprg(d_addr, high_bit(self.fetch(self.preg(Preg::Z) as u32)));
-        } else {
-            self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
-        }
+        self.set_gprg(d_addr, self.z_program_memory());
         self.pc_increment(1);
         self.cycle_increment(3);
     }
 
     fn lpm3(&mut self) {
         let d_addr = self.word().operand5();
-        if (self.preg(Preg::Z) & 1) == 1 {
-            self.set_gprg(d_addr, high_bit(self.fetch(self.preg(Preg::Z) as u32)));
-        } else {
-            self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
-        }
+        self.set_gprg(d_addr, self.z_program_memory());
         self.set_preg(Preg::Z, self.preg(Preg::Z) + 1);
         self.pc_increment(1);
         self.cycle_increment(3);

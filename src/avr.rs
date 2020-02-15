@@ -114,6 +114,17 @@ pub trait AVR {
         let s = self.status(Sreg::V) ^ self.status(Sreg::N);
         self.set_status(Sreg::S, s);
     }
+
+    fn z_program_memory(&self) -> u8 {
+        let z_addr = self.preg(Preg::Z);
+        if z_addr % 2 == 0 {
+            let addr = z_addr / 2;
+            low_bit(self.fetch(addr as u32))
+        } else {
+            let addr = ( z_addr - 1 ) / 2;
+            high_bit(self.fetch(addr as u32))
+        }
+    }
 }
 
 // Status Register
