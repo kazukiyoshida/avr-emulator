@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader};
 
 pub const GENERAL_PURPOSE_REGISTER_SIZE: usize = 32;
 pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB. 16bit(~0xffff)で表現可能.
-pub const SRAM_SIZE: usize = 0x8ff; // = 0d2048  = 2 KiB
+pub const SRAM_SIZE: usize = 0x900; // = 0d2048  = 2 KiB
 pub const EEPROM_SIZE: usize = 0x400; // = 0d1024  = 1 KiB
 pub const STATUS_REGISTER: usize = 0x5f;
 pub const STACK_POINTER_H: usize = 0x5e;
@@ -79,7 +79,7 @@ impl AVR for ATmega328P {
     }
 
     fn set_gprg(&mut self, addr: usize, v: u8) {
-        self.sram.set(addr, v)
+        self.sram.set(addr, v);
     }
 
     fn cycle(&self) -> u64 {
@@ -150,7 +150,7 @@ impl ATmega328P {
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
                 self.flash_memory
-                    .set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
+                    .set(memory_addr, (c << 12 | d << 8 | a << 4 | b) as u16);
                 memory_addr += 1;
             }
         }
@@ -163,8 +163,7 @@ pub struct EEPROM([u8; EEPROM_SIZE]);
 
 impl Memory<u16> for FlashMemory {
     fn get(&self, a: usize) -> u16 {
-        let n = self.0[a];
-        ((n & 0xff) << 8) | (n >> 8)
+        self.0[a]
     }
 
     // WIP

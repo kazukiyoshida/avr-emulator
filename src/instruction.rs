@@ -5,7 +5,7 @@ use itertools::izip;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum Instr {
     ADD,
     ADC,
@@ -477,7 +477,7 @@ pub trait AVRExecutable: AVR {
         let d = self.gprg(d_addr);
         let res = d.wrapping_sub(k);
         self.set_gprg(d_addr, res);
-        // self.set_status_by_arithmetic_instruction(d, r, res);
+        self.set_status_by_arithmetic_instruction(d, k, res);
         self.set_status(Sreg::C, d < k);
         self.pc_increment(1);
         self.cycle_increment(1);
@@ -496,14 +496,14 @@ pub trait AVRExecutable: AVR {
         let x_addr = self.preg(Preg::X);
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
-        self.set_preg(Preg::X, x_addr + 1u16);
+        self.set_preg(Preg::X, x_addr + 1);
         self.pc_increment(1);
         self.cycle_increment(2);
     }
 
     fn ld3(&mut self) {
         let d_addr = self.word().operand5();
-        let x_addr = self.preg(Preg::X) - 1u16;
+        let x_addr = self.preg(Preg::X) - 1;
         self.set_preg(Preg::X, x_addr);
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
@@ -598,7 +598,7 @@ pub trait AVRExecutable: AVR {
         let (w1, w2) = self.double_word();
         let k = w1.operand22(w2);
         self.set_pc(k);
-        self.cycle_increment(3);
+        self.cycle_increment(2); // 3 cycles in Manual
     }
 
     fn rjmp(&mut self) {
@@ -652,8 +652,8 @@ pub trait AVRExecutable: AVR {
         let d_addr = self.word().operand5();
         let x_addr = self.preg(Preg::X);
         let d = self.gprg(d_addr);
-        self.set_preg(Preg::X, x_addr + 1);
         self.set_gprg(x_addr as usize, d);
+        self.set_preg(Preg::X, x_addr + 1);
         self.pc_increment(1);
         self.cycle_increment(2);
     }
@@ -710,7 +710,6 @@ pub trait AVRExecutable: AVR {
         self.cycle_increment(1);
     }
 
-    // WIP
     fn cpi(&mut self) {
         let (k, d_addr) = self.word().operand84();
         let d = self.gprg(d_addr);
@@ -729,7 +728,7 @@ pub trait AVRExecutable: AVR {
         self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
         self.set_status(Sreg::V, has_2complement_overflow(d, r, res));
         self.set_status(Sreg::N, msb(res));
-        if res == 0 {
+        if res != 0 {
             self.set_status(Sreg::Z, false);
         }
         self.set_status(Sreg::C, d < r + c);
