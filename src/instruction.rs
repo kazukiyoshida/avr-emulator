@@ -359,7 +359,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -371,7 +371,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -383,7 +383,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         // self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < k);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -398,7 +398,7 @@ pub trait AVRExecutable: AVR {
         self.set_status(Sreg::Z, result == 0);
         self.signed_test();
 
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -409,7 +409,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
         self.set_status(Sreg::C, false);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -420,7 +420,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < r);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -432,7 +432,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < (r + 1));
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -443,7 +443,7 @@ pub trait AVRExecutable: AVR {
         self.set_gprg(d_addr, res);
         // self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < k);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -451,7 +451,7 @@ pub trait AVRExecutable: AVR {
         let d_addr = self.word().operand5();
         let x_addr = self.preg(Preg::X);
         self.set_gprg(d_addr, self.gprg(x_addr as usize));
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -461,7 +461,7 @@ pub trait AVRExecutable: AVR {
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
         self.set_preg(Preg::X, x_addr + 1u16);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
@@ -471,14 +471,14 @@ pub trait AVRExecutable: AVR {
         self.set_preg(Preg::X, x_addr);
         let x = self.gprg(x_addr as usize);
         self.set_gprg(d_addr, x);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(3);
     }
 
     fn ldi(&mut self) {
         let (k, d_addr) = self.word().operand84();
         self.set_gprg(d_addr, k);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -486,7 +486,7 @@ pub trait AVRExecutable: AVR {
         let (w, k) = self.double_word();
         let d_addr = w.operand5();
         self.set_gprg(d_addr, k.0 as u8);
-        self.pc_double_increment();
+        self.pc_increment(2);
         self.cycle_increment(2);
     }
 
@@ -494,7 +494,7 @@ pub trait AVRExecutable: AVR {
         let (a_addr, r_addr) = self.word().operand65();
         let r = self.gprg(r_addr);
         self.set_gprg(a_addr, r);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -502,12 +502,12 @@ pub trait AVRExecutable: AVR {
         let (a_addr, d_addr) = self.word().operand65();
         let a = self.gprg(a_addr);
         self.set_gprg(d_addr, a);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
     fn nop(&mut self) {
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -552,7 +552,7 @@ pub trait AVRExecutable: AVR {
         let d_addr = w1.operand5();
         let d = self.gprg(d_addr);
         self.set_gprg(k.0 as usize, d);
-        self.pc_double_increment();
+        self.pc_increment(2);
         self.cycle_increment(2);
     }
 
@@ -562,7 +562,7 @@ pub trait AVRExecutable: AVR {
         } else {
             self.set_gprg(0, low_bit(self.preg(Preg::Z)));
         }
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(3);
     }
 
@@ -573,7 +573,7 @@ pub trait AVRExecutable: AVR {
         } else {
             self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
         }
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(3);
     }
 
@@ -585,7 +585,7 @@ pub trait AVRExecutable: AVR {
             self.set_gprg(d_addr, low_bit(self.fetch(self.preg(Preg::Z) as u32)));
         }
         self.set_preg(Preg::Z, self.preg(Preg::Z) + 1);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(3);
     }
 
@@ -594,7 +594,7 @@ pub trait AVRExecutable: AVR {
         let x_addr = self.preg(Preg::X);
         let d = self.gprg(d_addr);
         self.set_gprg(x_addr as usize, d);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
@@ -604,7 +604,7 @@ pub trait AVRExecutable: AVR {
         let d = self.gprg(d_addr);
         self.set_preg(Preg::X, x_addr + 1);
         self.set_gprg(x_addr as usize, d);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
@@ -614,7 +614,7 @@ pub trait AVRExecutable: AVR {
         let d = self.gprg(d_addr);
         self.set_preg(Preg::X, x_addr);
         self.set_gprg(x_addr as usize, d);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
@@ -624,7 +624,7 @@ pub trait AVRExecutable: AVR {
         let res = d.wrapping_sub(r);
         self.set_status_by_arithmetic_instruction(d, r, res);
         self.set_status(Sreg::C, d < r);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -635,7 +635,7 @@ pub trait AVRExecutable: AVR {
         let res = d.wrapping_sub(k);
         self.set_status_by_arithmetic_instruction(d, k, res);
         self.set_status(Sreg::C, d < k);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -652,7 +652,7 @@ pub trait AVRExecutable: AVR {
         }
         self.set_status(Sreg::C, d < r + c);
         self.signed_test();
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -664,7 +664,7 @@ pub trait AVRExecutable: AVR {
             self.set_pc(self.pc() + 2);
             self.cycle_increment(2);
         } else {
-            self.pc_increment();
+            self.pc_increment(1);
             self.cycle_increment(1);
         }
     }
@@ -675,7 +675,7 @@ pub trait AVRExecutable: AVR {
         let res = d | k;
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -685,7 +685,7 @@ pub trait AVRExecutable: AVR {
         let res = d & r;
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -695,7 +695,7 @@ pub trait AVRExecutable: AVR {
         let res = d & k;
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -705,7 +705,7 @@ pub trait AVRExecutable: AVR {
         let res = d ^ r;
         self.set_gprg(d_addr, res);
         self.set_status_by_bit_instruction(res);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -717,14 +717,14 @@ pub trait AVRExecutable: AVR {
             self.set_pc(result);
             self.cycle_increment(2);
         } else {
-            self.pc_increment();
+            self.pc_increment(1);
             self.cycle_increment(1);
         }
     }
 
     fn brne(&mut self) {
         if self.status(Sreg::Z) {
-            self.pc_increment();
+            self.pc_increment(1);
             self.cycle_increment(1);
         } else {
             let k = self.word().operand7();
@@ -743,7 +743,7 @@ pub trait AVRExecutable: AVR {
             self.set_pc(result as u32);
             self.cycle_increment(2);
         } else {
-            self.pc_increment();
+            self.pc_increment(1);
             self.cycle_increment(1);
         }
     }
@@ -757,7 +757,7 @@ pub trait AVRExecutable: AVR {
             self.set_pc(self.pc() + 2);
             self.cycle_increment(2);
         } else {
-            self.pc_increment();
+            self.pc_increment(1);
             self.cycle_increment(1);
         }
     }
@@ -774,19 +774,19 @@ pub trait AVRExecutable: AVR {
         self.set_status(Sreg::N, msb(high_bit(result)));
         self.set_status(Sreg::Z, result == 0);
         self.signed_test();
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
     fn sei(&mut self) {
         self.set_status(Sreg::I, true);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
     fn cli(&mut self) {
         self.set_status(Sreg::I, false);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -801,7 +801,7 @@ pub trait AVRExecutable: AVR {
         let d_addr = self.word().operand5();
         let d = self.gprg(d_addr);
         self.push_stack(d);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
@@ -809,7 +809,7 @@ pub trait AVRExecutable: AVR {
         let d_addr = self.word().operand5();
         let s = self.pop_stack();
         self.set_gprg(d_addr, s);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(2);
     }
 
@@ -817,7 +817,7 @@ pub trait AVRExecutable: AVR {
         let (r_addr, d_addr) = self.word().operand55();
         let r = self.gprg(r_addr);
         self.set_gprg(d_addr, r);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 
@@ -826,7 +826,7 @@ pub trait AVRExecutable: AVR {
         let (rl, rh) = self.gprgs(r_addr, r_addr + 1);
         self.set_gprg(d_addr, rl);
         self.set_gprg(d_addr + 1, rh);
-        self.pc_increment();
+        self.pc_increment(1);
         self.cycle_increment(1);
     }
 }

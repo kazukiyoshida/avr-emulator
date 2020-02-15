@@ -17,12 +17,8 @@ pub trait AVR {
 
     fn set_pc(&mut self, v: u32);
 
-    fn pc_increment(&mut self) {
-        self.set_pc(self.pc() + 1);
-    }
-
-    fn pc_double_increment(&mut self) {
-        self.set_pc(self.pc() + 2);
+    fn pc_increment(&mut self, diff: u32) {
+        self.set_pc(self.pc() + diff);
     }
 
     // Stack Pointer
