@@ -417,8 +417,19 @@ pub trait AVRExecutable: AVR {
         let c = self.status(Sreg::C) as u8;
         let res = d.wrapping_sub(k).wrapping_sub(c);
         self.set_gprg(d_addr, res);
-        // self.set_status_by_arithmetic_instruction(d, r, res);
-        self.set_status(Sreg::C, d < k);
+
+        self.set_status(Sreg::H, has_borrow_from_bit3(d, k, res));
+        self.set_status(Sreg::V, has_2complement_overflow(d, k, res));
+        self.set_status(Sreg::N, msb(res));
+        if res != 0 {
+            self.set_status(Sreg::Z, false);
+        };
+        match d.checked_sub(k).and_then(|d_k| d_k.checked_sub(c)) {
+            None => self.set_status(Sreg::C, true),
+            _ => self.set_status(Sreg::C, false),
+        };
+        self.signed_test();
+
         self.pc_increment(1);
         self.cycle_increment(1);
     }
