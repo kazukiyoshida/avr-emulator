@@ -20,6 +20,9 @@ pub enum Instr {
     LD2,
     LD3,
     LDI,
+    LDDZ1,
+    LDDZ2,
+    LDDZ3,
     LDS,
     OUT,
     IN,
@@ -36,6 +39,9 @@ pub enum Instr {
     ST1,
     ST2,
     ST3,
+    STZ1,
+    STZ2,
+    STZ3,
     LPM1,
     LPM2,
     LPM3,
@@ -114,6 +120,18 @@ lazy_static! {
             Opcode(0b1001_0000_0000_1110, 0b1111_1110_0000_1111),
         );
         m.insert(
+            Instr::LDDZ1,
+            Opcode(0b1000_0000_0000_0000, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::LDDZ2,
+            Opcode(0b1001_0000_0000_0001, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::LDDZ3,
+            Opcode(0b1001_0000_0000_0010, 0b1111_1110_0000_1111),
+        );
+        m.insert(
             Instr::LDS,
             Opcode(0b1001_0000_0000_0000, 0b1111_1110_0000_1111),
         );
@@ -176,6 +194,18 @@ lazy_static! {
         m.insert(
             Instr::ST3,
             Opcode(0b1001_0010_0000_1110, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::STZ1,
+            Opcode(0b1000_0010_0000_0000, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::STZ2,
+            Opcode(0b1001_0010_0000_0001, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::STZ3,
+            Opcode(0b1001_0010_0000_0010, 0b1111_1110_0000_1111),
         );
         m.insert(
             Instr::LPM1,
@@ -315,6 +345,9 @@ pub trait AVRExecutable: AVR {
             &Instr::LD2 => self.ld2(),
             &Instr::LD3 => self.ld3(),
             &Instr::LDS => self.lds(),
+            &Instr::LDDZ1 => self.lddz1(),
+            &Instr::LDDZ2 => self.lddz2(),
+            &Instr::LDDZ3 => self.lddz3(),
             &Instr::OUT => self.out(),
             &Instr::IN => self.in_instr(),
             &Instr::NOP => self.nop(),
@@ -330,6 +363,9 @@ pub trait AVRExecutable: AVR {
             &Instr::ST1 => self.st1(),
             &Instr::ST2 => self.st2(),
             &Instr::ST3 => self.st3(),
+            &Instr::STZ1 => self.stz1(),
+            &Instr::STZ2 => self.stz2(),
+            &Instr::STZ3 => self.stz3(),
             &Instr::LPM1 => self.lpm1(),
             &Instr::LPM2 => self.lpm2(),
             &Instr::LPM3 => self.lpm3(),
@@ -490,6 +526,32 @@ pub trait AVRExecutable: AVR {
         self.cycle_increment(2);
     }
 
+    fn lddz1(&mut self) {
+        let d_addr = self.word().operand5();
+        let z_addr = self.preg(Preg::Z);
+        self.set_gprg(d_addr, self.gprg(z_addr as usize));
+        self.pc_increment(1);
+        self.cycle_increment(2); // 1 cycles in Manual
+    }
+
+    fn lddz2(&mut self) {
+        let d_addr = self.word().operand5();
+        let z_addr = self.preg(Preg::Z);
+        self.set_gprg(d_addr, self.gprg(z_addr as usize));
+        self.set_preg(Preg::Z, z_addr + 1);
+        self.pc_increment(1);
+        self.cycle_increment(2);
+    }
+
+    fn lddz3(&mut self) {
+        let d_addr = self.word().operand5();
+        let z_addr = self.preg(Preg::Z) - 1;
+        self.set_preg(Preg::Z, z_addr);
+        self.set_gprg(d_addr, self.gprg(z_addr as usize));
+        self.pc_increment(1);
+        self.cycle_increment(2);
+    }
+
     fn out(&mut self) {
         let (a_addr, r_addr) = self.word().operand65();
         let r = self.gprg(r_addr);
@@ -614,6 +676,38 @@ pub trait AVRExecutable: AVR {
         let d = self.gprg(d_addr);
         self.set_preg(Preg::X, x_addr);
         self.set_gprg(x_addr as usize, d);
+        self.pc_increment(1);
+        self.cycle_increment(2);
+    }
+
+    // WIP: AtmelStudio シミュレーション "avr_studio/led_flashing.hex" cycle 112
+    //      において SRAM 0x84 に 0x01 がセットされる現象を確認. Zレジスタや
+    //      オペランドからはその理由を推測できなかった.（timer の可能性？）
+    fn stz1(&mut self) {
+        let d_addr = self.word().operand5();
+        let z_addr = self.preg(Preg::Z);
+        let d = self.gprg(d_addr);
+        self.set_gprg(z_addr as usize, d);
+        self.pc_increment(1);
+        self.cycle_increment(2);
+    }
+
+    fn stz2(&mut self) {
+        let d_addr = self.word().operand5();
+        let z_addr = self.preg(Preg::Z);
+        let d = self.gprg(d_addr);
+        self.set_gprg(z_addr as usize, d);
+        self.set_preg(Preg::Z, z_addr + 1);
+        self.pc_increment(1);
+        self.cycle_increment(2);
+    }
+
+    fn stz3(&mut self) {
+        let d_addr = self.word().operand5();
+        let z_addr = self.preg(Preg::Z) - 1;
+        let d = self.gprg(d_addr);
+        self.set_preg(Preg::Z, z_addr);
+        self.set_gprg(z_addr as usize, d);
         self.pc_increment(1);
         self.cycle_increment(2);
     }
