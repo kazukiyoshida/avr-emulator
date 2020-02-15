@@ -25,7 +25,7 @@ impl AVR for ATmega328P {
     fn execute(&mut self) {
         let w = self.word();
         match decode_instr(w) {
-            Some(i) => self.exec(i),
+            Some(i) => exec(self, i),
             None => (),
         }
     }
@@ -112,8 +112,6 @@ impl AVR for ATmega328P {
         };
     }
 }
-
-impl AVRExecutable for ATmega328P {}
 
 impl ATmega328P {
     pub fn new() -> ATmega328P {
