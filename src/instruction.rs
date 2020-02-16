@@ -1,3 +1,4 @@
+use std::process;
 use super::avr::*;
 use super::utils::*;
 use super::word::*;
@@ -591,9 +592,10 @@ pub fn ldi<T: AVR>(avr: &mut T) {
 }
 
 pub fn lds<T: AVR>(avr: &mut T) {
-    let (w, k) = avr.double_word();
+    let (w, k_addr) = avr.double_word();
     let d_addr = w.operand5();
-    avr.set_gprg(d_addr, k.0 as u8);
+    let k = avr.gprg(k_addr.0 as usize);
+    avr.set_gprg(d_addr, k);
     avr.pc_increment(2);
     avr.cycle_increment(2);
 }

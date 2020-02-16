@@ -8,25 +8,27 @@ pub struct Log {
     pub processor: String,
     pub registers: String,
     pub sram: String,
+    pub stack: String,
 }
 
 impl fmt::Display for Log {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}\n{}\n{}", self.processor, self.registers, self.sram,)
+        write!(f, "{}\n{}\n{}\n..{}", self.processor, self.registers, self.sram, self.stack)
     }
 }
 
 impl Log {
-    pub fn new(processor: String, registers: String, sram: String) -> Log {
+    pub fn new(processor: String, registers: String, sram: String, stack: String) -> Log {
         Log {
             processor: processor,
             registers: registers,
             sram: sram,
+            stack: stack,
         }
     }
 
     pub fn all(&self) -> String {
-        format!("{}\n{}\n{}", self.processor, self.registers, self.sram)
+        format!("{}\n{}\n{}\n{}", self.processor, self.registers, self.sram, self.stack)
     }
 
     pub fn diff(&self, log: &Log) -> String {
@@ -89,7 +91,8 @@ impl Logger {
         let log = Log::new(
             self.processor_status(avr),
             self.registers_status(avr),
-            self.memory_status(avr.sram(), 2, 0, 24),
+            self.memory_status(avr.sram(), 2, 0, 28),
+            self.memory_status(avr.sram(), 2, 284, 288), // 0x8ff / 8 = 0d288
         );
         self.logs.push(log);
         match self.current_index {

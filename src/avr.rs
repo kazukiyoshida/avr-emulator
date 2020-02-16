@@ -1,4 +1,3 @@
-use super::instruction::*;
 use super::utils::*;
 use super::word::*;
 use std::fmt::LowerHex;
