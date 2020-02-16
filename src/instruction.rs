@@ -74,6 +74,13 @@ pub enum Instr {
 pub struct Opcode(pub u16, pub u16);
 
 lazy_static! {
+    static ref INSTRUCTION_32_BIT: Vec<&'static Instr> = vec![
+        &Instr::CALL,
+        &Instr::JMP,
+        &Instr::LDS,
+        &Instr::STS,
+    ];
+
     static ref OPCODE_MAP: HashMap<Instr, Opcode> = {
         let mut m = HashMap::new();
         m.insert(
@@ -891,9 +898,23 @@ pub fn cpse<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
     let (r, d) = avr.gprgs(r_addr, d_addr);
     if r == d {
-        // WIP: ATmega328p is 16bit Program Counter machine...
-        avr.set_pc(avr.pc() + 2);
-        avr.cycle_increment(2);
+        // The skip size is diffrenet by next instruction size.
+        let next_opcode = Word(avr.fetch(avr.pc() + 1));
+        match decode_instr(next_opcode) {
+            Some(i) => {
+                if INSTRUCTION_32_BIT.contains(&i) {
+                    avr.set_pc(avr.pc() + 3);
+                    avr.cycle_increment(3);
+                } else {
+                    avr.set_pc(avr.pc() + 2);
+                    avr.cycle_increment(2);
+                };
+            },
+            None => {
+                println!("instruction decode failed: {:016b}", next_opcode.0);
+                process::exit(1);
+            },
+        };
     } else {
         avr.pc_increment(1);
         avr.cycle_increment(1);
