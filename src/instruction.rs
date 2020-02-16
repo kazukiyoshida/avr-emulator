@@ -82,256 +82,257 @@ lazy_static! {
         &Instr::STS,
     ];
 
-    static ref OPCODE_MAP: HashMap<Instr, Opcode> = {
-        let mut m = HashMap::new();
-        m.insert(
+    // WIP: Fix the data structure and algorithms
+    static ref OPCODE_MAP: Vec<( Instr, Opcode )> = {
+        let mut m = vec![];
+        m.push((
             Instr::ADD,
             Opcode(0b0000_1100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ADC,
             Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SUB,
             Opcode(0b0001_1000_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SBC,
             Opcode(0b0000_1000_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SUBI,
             Opcode(0b0101_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SBCI,
             Opcode(0b0100_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SBIW,
             Opcode(0b1001_0111_0000_0000, 0b1111_1111_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::DEC,
             Opcode(0b1001_0100_0000_1010, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::COM,
             Opcode(0b1001_0100_0000_0000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDI,
             Opcode(0b1110_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LD1,
             Opcode(0b1001_0000_0000_1100, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LD2,
             Opcode(0b1001_0000_0000_1101, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LD3,
             Opcode(0b1001_0000_0000_1110, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDDY1,
             Opcode(0b1000_0000_0000_1000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDDY2,
             Opcode(0b1001_0000_0000_1001, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDDY3,
             Opcode(0b1001_0000_0000_1010, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDDZ1,
             Opcode(0b1000_0000_0000_0000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDDZ2,
             Opcode(0b1001_0000_0000_0001, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDDZ3,
             Opcode(0b1001_0000_0000_0010, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LDS,
             Opcode(0b1001_0000_0000_0000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::OUT,
             Opcode(0b1011_1000_0000_0000, 0b1111_1000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::IN,
             Opcode(0b1011_0000_0000_0000, 0b1111_1000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::NOP,
             Opcode(0b0000_0000_0000_0000, 0b1111_1111_1111_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::CALL,
             Opcode(0b1001_0100_0000_1110, 0b1111_1110_0000_1110),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::RCALL,
             Opcode(0b1101_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ROL,
             Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LSL,
             Opcode(0b0000_1100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::JMP,
             Opcode(0b1001_0100_0000_1100, 0b1111_1110_0000_1110),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::RJMP,
             Opcode(0b1100_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ORI,
             Opcode(0b0110_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::AND,
             Opcode(0b0010_0000_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ANDI,
             Opcode(0b0111_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::OR,
             Opcode(0b0010_1000_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::EOR,
             Opcode(0b0010_0100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STS,
             Opcode(0b1001_0010_0000_0000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ST1,
             Opcode(0b1001_0010_0000_1100, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ST2,
             Opcode(0b1001_0010_0000_1101, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::ST3,
             Opcode(0b1001_0010_0000_1110, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STY1,
             Opcode(0b1000_0010_0000_1000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STY2,
             Opcode(0b1001_0010_0000_1001, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STY3,
             Opcode(0b1001_0010_0000_1010, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STZ1,
             Opcode(0b1000_0010_0000_0000, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STZ2,
             Opcode(0b1001_0010_0000_0001, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::STZ3,
             Opcode(0b1001_0010_0000_0010, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LPM1,
             Opcode(0b1001_0101_1100_1000, 0b1111_1111_1111_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LPM2,
             Opcode(0b1001_0000_0000_0100, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::LPM3,
             Opcode(0b1001_0000_0000_0101, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::CP,
             Opcode(0b0001_0100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::CPI,
             Opcode(0b0011_0000_0000_0000, 0b1111_0000_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::CPC,
             Opcode(0b0000_0100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::CPSE,
             Opcode(0b0001_0000_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::BREQ,
             Opcode(0b1111_0000_0000_0001, 0b1111_1100_0000_0111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::BRNE,
             Opcode(0b1111_0100_0000_0001, 0b1111_1100_0000_0111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::BRCS,
             Opcode(0b1111_0000_0000_0000, 0b1111_1100_0000_0111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SBIS,
             Opcode(0b1001_1011_0000_0000, 0b1111_1111_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::SEI,
             Opcode(0b1001_0100_0111_1000, 0b1111_1111_1111_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::CLI,
             Opcode(0b1001_0100_1111_1000, 0b1111_1111_1111_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::RET,
             Opcode(0b1001_0101_0000_1000, 0b1111_1111_1111_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::PUSH,
             Opcode(0b1001_0010_0000_1111, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::POP,
             Opcode(0b1001_0000_0000_1111, 0b1111_1110_0000_1111),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::MOV,
             Opcode(0b0010_1100_0000_0000, 0b1111_1100_0000_0000),
-        );
-        m.insert(
+        ));
+        m.push((
             Instr::MOVW,
             Opcode(0b0000_0001_0000_0000, 0b1111_1111_0000_0000),
-        );
+        ));
         m
     };
 }
