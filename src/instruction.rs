@@ -20,6 +20,9 @@ pub enum Instr {
     LD2,
     LD3,
     LDI,
+    LDDY1,
+    LDDY2,
+    LDDY3,
     LDDZ1,
     LDDZ2,
     LDDZ3,
@@ -29,16 +32,22 @@ pub enum Instr {
     NOP,
     CALL,
     RCALL,
+    ROL,
+    LSL,
     JMP,
     RJMP,
     AND,
     ANDI,
+    OR,
     EOR,
     ORI,
     STS,
     ST1,
     ST2,
     ST3,
+    STY1,
+    STY2,
+    STY3,
     STZ1,
     STZ2,
     STZ3,
@@ -120,6 +129,18 @@ lazy_static! {
             Opcode(0b1001_0000_0000_1110, 0b1111_1110_0000_1111),
         );
         m.insert(
+            Instr::LDDY1,
+            Opcode(0b1000_0000_0000_1000, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::LDDY2,
+            Opcode(0b1001_0000_0000_1001, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::LDDY3,
+            Opcode(0b1001_0000_0000_1010, 0b1111_1110_0000_1111),
+        );
+        m.insert(
             Instr::LDDZ1,
             Opcode(0b1000_0000_0000_0000, 0b1111_1110_0000_1111),
         );
@@ -156,6 +177,14 @@ lazy_static! {
             Opcode(0b1101_0000_0000_0000, 0b1111_0000_0000_0000),
         );
         m.insert(
+            Instr::ROL,
+            Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
+        );
+        m.insert(
+            Instr::LSL,
+            Opcode(0b0000_1100_0000_0000, 0b1111_1100_0000_0000),
+        );
+        m.insert(
             Instr::JMP,
             Opcode(0b1001_0100_0000_1100, 0b1111_1110_0000_1110),
         );
@@ -176,6 +205,10 @@ lazy_static! {
             Opcode(0b0111_0000_0000_0000, 0b1111_0000_0000_0000),
         );
         m.insert(
+            Instr::OR,
+            Opcode(0b0010_1000_0000_0000, 0b1111_1100_0000_0000),
+        );
+        m.insert(
             Instr::EOR,
             Opcode(0b0010_0100_0000_0000, 0b1111_1100_0000_0000),
         );
@@ -194,6 +227,18 @@ lazy_static! {
         m.insert(
             Instr::ST3,
             Opcode(0b1001_0010_0000_1110, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::STY1,
+            Opcode(0b1000_0010_0000_1000, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::STY2,
+            Opcode(0b1001_0010_0000_1001, 0b1111_1110_0000_1111),
+        );
+        m.insert(
+            Instr::STY3,
+            Opcode(0b1001_0010_0000_1010, 0b1111_1110_0000_1111),
         );
         m.insert(
             Instr::STZ1,
@@ -345,6 +390,9 @@ pub fn exec<T: AVR>(avr: &mut T, i: &Instr) {
         &Instr::LD2 => ld2(avr),
         &Instr::LD3 => ld3(avr),
         &Instr::LDS => lds(avr),
+        &Instr::LDDY1 => lddy1(avr),
+        &Instr::LDDY2 => lddy2(avr),
+        &Instr::LDDY3 => lddy3(avr),
         &Instr::LDDZ1 => lddz1(avr),
         &Instr::LDDZ2 => lddz2(avr),
         &Instr::LDDZ3 => lddz3(avr),
@@ -353,9 +401,12 @@ pub fn exec<T: AVR>(avr: &mut T, i: &Instr) {
         &Instr::NOP => nop(avr),
         &Instr::CALL => call(avr),
         &Instr::RCALL => rcall(avr),
+        &Instr::ROL => rol(avr),
+        &Instr::LSL => lsl(avr),
         &Instr::JMP => jmp(avr),
         &Instr::RJMP => rjmp(avr),
         &Instr::ORI => ori(avr),
+        &Instr::OR => or(avr),
         &Instr::EOR => eor(avr),
         &Instr::AND => and(avr),
         &Instr::ANDI => andi(avr),
@@ -363,6 +414,9 @@ pub fn exec<T: AVR>(avr: &mut T, i: &Instr) {
         &Instr::ST1 => st1(avr),
         &Instr::ST2 => st2(avr),
         &Instr::ST3 => st3(avr),
+        &Instr::STY1 => sty1(avr),
+        &Instr::STY2 => sty2(avr),
+        &Instr::STY3 => sty3(avr),
         &Instr::STZ1 => stz1(avr),
         &Instr::STZ2 => stz2(avr),
         &Instr::STZ3 => stz3(avr),
@@ -537,6 +591,31 @@ pub fn lds<T: AVR>(avr: &mut T) {
     avr.cycle_increment(2);
 }
 
+pub fn lddy1<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand5();
+    let y_addr = avr.preg(Preg::Y);
+    avr.set_gprg(d_addr, avr.gprg(y_addr as usize));
+    avr.pc_increment(1);
+    avr.cycle_increment(2); // 1 cycles in Manual
+}
+
+pub fn lddy2<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand5();
+    let y_addr = avr.preg(Preg::Y);
+    avr.set_gprg(d_addr, avr.gprg(y_addr as usize));
+    avr.set_preg(Preg::Y, y_addr + 1);
+    avr.pc_increment(1);
+    avr.cycle_increment(2);
+}
+
+pub fn lddy3<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand5();
+    let y_addr = avr.preg(Preg::Y) - 1;
+    avr.set_preg(Preg::Y, y_addr);
+    avr.set_gprg(d_addr, avr.gprg(y_addr as usize));
+    avr.pc_increment(1);
+    avr.cycle_increment(2);
+}
 pub fn lddz1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
     let z_addr = avr.preg(Preg::Z);
@@ -595,6 +674,41 @@ pub fn call<T: AVR>(avr: &mut T) {
     avr.set_pc(w1.operand22(w2));
 
     avr.cycle_increment(4);
+}
+
+pub fn rol<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand10() as usize;
+    let d_old = avr.gprg(d_addr);
+    let c = avr.status(Sreg::C) as u8;
+    let d_new = ( d_old << 1 ) | c;
+    avr.set_gprg(d_addr, d_new);
+
+    avr.set_status(Sreg::H, ( d_old & 0b0000_1000 )>>3 == 1);
+    avr.set_status(Sreg::N, msb(d_new));
+    avr.set_status(Sreg::Z, d_new == 0);
+    avr.set_status(Sreg::C, msb(d_old));
+    avr.set_status(Sreg::V, avr.status(Sreg::N) ^ avr.status(Sreg::C));
+    avr.signed_test();
+
+    avr.pc_increment(1);
+    avr.cycle_increment(3);
+}
+
+pub fn lsl<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand10() as usize;
+    let d_old = avr.gprg(d_addr);
+    let d_new = d_old << 1;
+    avr.set_gprg(d_addr, d_new);
+
+    avr.set_status(Sreg::H, ( d_old & 0b0000_1000 )>>3 == 1);
+    avr.set_status(Sreg::N, msb(d_new));
+    avr.set_status(Sreg::Z, d_new == 0);
+    avr.set_status(Sreg::C, msb(d_old));
+    avr.set_status(Sreg::V, avr.status(Sreg::N) ^ avr.status(Sreg::C));
+    avr.signed_test();
+
+    avr.pc_increment(1);
+    avr.cycle_increment(3);
 }
 
 // WIP
@@ -679,9 +793,34 @@ pub fn st3<T: AVR>(avr: &mut T) {
     avr.cycle_increment(2);
 }
 
-// WIP: AtmelStudio シミュレーション "avr_studio/led_flashing.hex" cycle 112
-//      において SRAM 0x84 に 0x01 がセットされる現象を確認. Zレジスタや
-//      オペランドからはその理由を推測できなかった.（timer の可能性？）
+pub fn sty1<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand5();
+    let y_addr = avr.preg(Preg::Y);
+    let d = avr.gprg(d_addr);
+    avr.set_gprg(y_addr as usize, d);
+    avr.pc_increment(1);
+    avr.cycle_increment(2);
+}
+
+pub fn sty2<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand5();
+    let y_addr = avr.preg(Preg::Y);
+    let d = avr.gprg(d_addr);
+    avr.set_gprg(y_addr as usize, d);
+    avr.set_preg(Preg::Y, y_addr + 1);
+    avr.pc_increment(1);
+    avr.cycle_increment(2);
+}
+
+pub fn sty3<T: AVR>(avr: &mut T) {
+    let d_addr = avr.word().operand5();
+    let y_addr = avr.preg(Preg::Y) - 1;
+    let d = avr.gprg(d_addr);
+    avr.set_preg(Preg::Y, y_addr);
+    avr.set_gprg(y_addr as usize, d);
+    avr.pc_increment(1);
+    avr.cycle_increment(2);
+}
 pub fn stz1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
     let z_addr = avr.preg(Preg::Z);
@@ -785,6 +924,16 @@ pub fn andi<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
     let d = avr.gprg(d_addr);
     let res = d & k;
+    avr.set_gprg(d_addr, res);
+    avr.set_status_by_bit_instruction(res);
+    avr.pc_increment(1);
+    avr.cycle_increment(1);
+}
+
+pub fn or<T: AVR>(avr: &mut T) {
+    let (r_addr, d_addr) = avr.word().operand55();
+    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let res = d | r;
     avr.set_gprg(d_addr, res);
     avr.set_status_by_bit_instruction(res);
     avr.pc_increment(1);

@@ -69,6 +69,10 @@ impl Word {
         operand(self.0, 0b0000000111110000) as usize
     }
 
+    pub fn operand10(&self) -> u16 {
+        operand(self.0, 0b0000_0011_1111_1111)
+    }
+
     pub fn operand12(&self) -> u16 {
         operand(self.0, 0b0000_1111_1111_1111)
     }
