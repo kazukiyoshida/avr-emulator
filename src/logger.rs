@@ -1,4 +1,5 @@
 use super::avr::*;
+use super::memory::*;
 use colored::*;
 use difference::{Changeset, Difference};
 use std::fmt;
@@ -114,10 +115,10 @@ Cycle Counter:   {}"#,
             avr.pc(),
             avr.pc() * 2,
             avr.sp(),
-            avr.preg(Preg::X),
-            avr.preg(Preg::Y),
-            avr.preg(Preg::Z),
-            avr.sreg(),
+            avr.get_word(avr.w().x),
+            avr.get_word(avr.w().y),
+            avr.get_word(avr.w().z),
+            avr.get_register(avr.r().sreg),
             avr.cycle(),
         )
     }
@@ -129,13 +130,13 @@ Cycle Counter:   {}"#,
             let s = format!(
                 "R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x}, R{:02} = {:#04x},",
                 i,
-                avr.gprg(i),
+                avr.get_register(i),
                 i + 1,
-                avr.gprg(i + 1),
+                avr.get_register(i + 1),
                 i + 2,
-                avr.gprg(i + 2),
+                avr.get_register(i + 2),
                 i + 3,
-                avr.gprg(i + 3)
+                avr.get_register(i + 3)
             );
             sum = format!("{}\n{}", sum, s);
         }

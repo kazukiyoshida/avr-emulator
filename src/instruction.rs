@@ -4,12 +4,12 @@ use super::utils::*;
 use super::word::*;
 use itertools::izip;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum Instr {
     ADD,
     ADC,
+    ADIW,
     SUB,
     SBC,
     SUBI,
@@ -92,6 +92,10 @@ lazy_static! {
         m.push((
             Instr::ADC,
             Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
+        ));
+        m.push((
+            Instr::ADIW,
+            Opcode(0b1001_0110_0000_0000, 0b1111_1111_0000_0000),
         ));
         m.push((
             Instr::SUB,
@@ -388,6 +392,7 @@ pub fn exec<T: AVR>(avr: &mut T, i: &Instr) {
     match i {
         &Instr::ADD => add(avr),
         &Instr::ADC => adc(avr),
+        &Instr::ADIW => adiw(avr),
         &Instr::SUB => sub(avr),
         &Instr::SBC => sbc(avr),
         &Instr::SUBI => subi(avr),
@@ -453,43 +458,61 @@ pub fn exec<T: AVR>(avr: &mut T, i: &Instr) {
 
 pub fn add<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = r.wrapping_add(d);
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
+    avr.set_bit(avr.b().c, has_borrow_from_msb(r, d, res));
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn adc<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
-    let c = avr.status(Sreg::C) as u8;
+    let (r, d) = avr.get_registers(r_addr, d_addr);
+    let c = avr.get_bit(avr.b().c) as u8;
     let res = r.wrapping_add(d).wrapping_add(c);
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_status(Sreg::C, has_borrow_from_msb(r, d, res));
+    avr.set_bit(avr.b().c, has_borrow_from_msb(r, d, res));
+    avr.pc_increment(1);
+    avr.cycle_increment(1);
+}
+
+pub fn adiw<T: AVR>(avr: &mut T) {
+    let (k, d_addr) = avr.word().operand62();
+    let (dh, dl) = avr.get_registers(d_addr+1, d_addr);
+    let res = concat(dh, dl).wrapping_add(k as u16);
+    avr.set_register(d_addr, high_bit(res));
+    avr.set_register(d_addr+1, low_bit(res));
+
+    avr.set_bit(avr.b().v, !msb(dh) & msb(high_bit(res)));
+    avr.set_bit(avr.b().n, msb(high_bit(res)));
+    avr.set_bit(avr.b().z, res == 0);
+    avr.set_bit(avr.b().c, !msb(high_bit(res)) & msb(dh));
+
+    avr.signed_test();
+
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn sbci<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
-    let d = avr.gprg(d_addr);
-    let c = avr.status(Sreg::C) as u8;
+    let d = avr.get_register(d_addr);
+    let c = avr.get_bit(avr.b().c) as u8;
     let res = d.wrapping_sub(k).wrapping_sub(c);
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
 
-    avr.set_status(Sreg::H, has_borrow_from_bit3(d, k, res));
-    avr.set_status(Sreg::V, has_2complement_overflow(d, k, res));
-    avr.set_status(Sreg::N, msb(res));
+    avr.set_bit(avr.b().h, has_borrow_from_bit3(d, k, res));
+    avr.set_bit(avr.b().v, has_2complement_overflow(d, k, res));
+    avr.set_bit(avr.b().n, msb(res));
     if res != 0 {
-        avr.set_status(Sreg::Z, false);
+        avr.set_bit(avr.b().z, false);
     };
     match d.checked_sub(k).and_then(|d_k| d_k.checked_sub(c)) {
-        None => avr.set_status(Sreg::C, true),
-        _ => avr.set_status(Sreg::C, false),
+        None => avr.set_bit(avr.b().c, true),
+        _ => avr.set_bit(avr.b().c, false),
     };
     avr.signed_test();
 
@@ -499,13 +522,13 @@ pub fn sbci<T: AVR>(avr: &mut T) {
 
 pub fn dec<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     let result = d.wrapping_sub(1);
-    avr.set_gprg(d_addr, result);
+    avr.set_register(d_addr, result);
 
-    avr.set_status(Sreg::V, d == 0x80u8);
-    avr.set_status(Sreg::N, msb(result));
-    avr.set_status(Sreg::Z, result == 0);
+    avr.set_bit(avr.b().v, d == 0x80u8);
+    avr.set_bit(avr.b().n, msb(result));
+    avr.set_bit(avr.b().z, result == 0);
     avr.signed_test();
 
     avr.pc_increment(1);
@@ -514,80 +537,80 @@ pub fn dec<T: AVR>(avr: &mut T) {
 
 pub fn com<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     let res = 0xff - d;
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_bit_instruction(res);
-    avr.set_status(Sreg::C, false);
+    avr.set_bit(avr.b().c, false);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn sub<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d.wrapping_sub(r);
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_status(Sreg::C, d < r);
+    avr.set_bit(avr.b().c, d < r);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn sbc<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
-    let c = avr.status(Sreg::C) as u8;
+    let (r, d) = avr.get_registers(r_addr, d_addr);
+    let c = avr.get_bit(avr.b().c) as u8;
     let res = d.wrapping_add(r).wrapping_add(c);
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_status(Sreg::C, d < (r + 1));
+    avr.set_bit(avr.b().c, d < (r.wrapping_add(1)));
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn subi<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     let res = d.wrapping_sub(k);
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_arithmetic_instruction(d, k, res);
-    avr.set_status(Sreg::C, d < k);
+    avr.set_bit(avr.b().c, d < k);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn ld1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.preg(Preg::X);
-    avr.set_gprg(d_addr, avr.gprg(x_addr as usize));
+    let x_addr = avr.get_word(avr.w().x);
+    avr.set_register(d_addr, avr.get_register(x_addr as usize));
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn ld2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.preg(Preg::X);
-    let x = avr.gprg(x_addr as usize);
-    avr.set_gprg(d_addr, x);
-    avr.set_preg(Preg::X, x_addr + 1);
+    let x_addr = avr.get_word(avr.w().x);
+    let x = avr.get_register(x_addr as usize);
+    avr.set_register(d_addr, x);
+    avr.set_word(avr.w().x, x_addr + 1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn ld3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.preg(Preg::X) - 1;
-    avr.set_preg(Preg::X, x_addr);
-    let x = avr.gprg(x_addr as usize);
-    avr.set_gprg(d_addr, x);
+    let x_addr = avr.get_word(avr.w().x) -1;
+    avr.set_word(avr.w().x, x_addr);
+    let x = avr.get_register(x_addr as usize);
+    avr.set_register(d_addr, x);
     avr.pc_increment(1);
     avr.cycle_increment(3);
 }
 
 pub fn ldi<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
-    avr.set_gprg(d_addr, k);
+    avr.set_register(d_addr, k);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
@@ -595,75 +618,80 @@ pub fn ldi<T: AVR>(avr: &mut T) {
 pub fn lds<T: AVR>(avr: &mut T) {
     let (w, k_addr) = avr.double_word();
     let d_addr = w.operand5();
-    let k = avr.gprg(k_addr.0 as usize);
-    avr.set_gprg(d_addr, k);
+    let k = avr.get_register(k_addr.0 as usize);
+    avr.set_register(d_addr, k);
     avr.pc_increment(2);
     avr.cycle_increment(2);
 }
 
 pub fn lddy1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let y_addr = avr.preg(Preg::Y);
-    avr.set_gprg(d_addr, avr.gprg(y_addr as usize));
+    let y_addr = avr.get_word(avr.w().y);
+    avr.set_register(d_addr, avr.get_register(y_addr as usize));
     avr.pc_increment(1);
     avr.cycle_increment(2); // 1 cycles in Manual
 }
 
 pub fn lddy2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let y_addr = avr.preg(Preg::Y);
-    avr.set_gprg(d_addr, avr.gprg(y_addr as usize));
-    avr.set_preg(Preg::Y, y_addr + 1);
+    let y_addr = avr.get_word(avr.w().y);
+    avr.set_register(d_addr, avr.get_register(y_addr as usize));
+    avr.set_word(avr.w().y, y_addr+1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn lddy3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let y_addr = avr.preg(Preg::Y) - 1;
-    avr.set_preg(Preg::Y, y_addr);
-    avr.set_gprg(d_addr, avr.gprg(y_addr as usize));
+    let y_addr = avr.get_word(avr.w().y) - 1;
+    avr.set_word(avr.w().y, y_addr);
+    avr.set_register(d_addr, avr.get_register(y_addr as usize));
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
+
 pub fn lddz1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let z_addr = avr.preg(Preg::Z);
-    avr.set_gprg(d_addr, avr.gprg(z_addr as usize));
+    let z_addr = avr.get_word(avr.w().z);
+    avr.set_register(d_addr, avr.get_register(z_addr as usize));
     avr.pc_increment(1);
     avr.cycle_increment(2); // 1 cycles in Manual
 }
 
 pub fn lddz2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let z_addr = avr.preg(Preg::Z);
-    avr.set_gprg(d_addr, avr.gprg(z_addr as usize));
-    avr.set_preg(Preg::Z, z_addr + 1);
+    let z_addr = avr.get_word(avr.w().z);
+    avr.set_register(d_addr, avr.get_register(z_addr as usize));
+    avr.set_word(avr.w().z, z_addr + 1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn lddz3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let z_addr = avr.preg(Preg::Z) - 1;
-    avr.set_preg(Preg::Z, z_addr);
-    avr.set_gprg(d_addr, avr.gprg(z_addr as usize));
+    let z_addr = avr.get_word(avr.w().z) - 1;
+    avr.set_word(avr.w().z, z_addr);
+    avr.set_register(d_addr, avr.get_register(z_addr as usize));
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn out<T: AVR>(avr: &mut T) {
     let (a_addr, r_addr) = avr.word().operand65();
-    let r = avr.gprg(r_addr);
-    avr.set_gprg(a_addr, r);
+    let r = avr.get_register(r_addr);
+    avr.set_register(a_addr, r);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn in_instr<T: AVR>(avr: &mut T) {
     let (a_addr, d_addr) = avr.word().operand65();
-    let a = avr.gprg(a_addr);
-    avr.set_gprg(d_addr, a);
+    let a = avr.get_register(a_addr);
+    if a_addr == 0x5f { // SREG
+        avr.set_register(d_addr, a & 0b111_1111);
+    } else {
+        avr.set_register(d_addr, a);
+    };
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
@@ -688,16 +716,16 @@ pub fn call<T: AVR>(avr: &mut T) {
 
 pub fn rol<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand10() as usize;
-    let d_old = avr.gprg(d_addr);
-    let c = avr.status(Sreg::C) as u8;
+    let d_old = avr.get_register(d_addr);
+    let c = avr.get_bit(avr.b().c) as u8;
     let d_new = ( d_old << 1 ) | c;
-    avr.set_gprg(d_addr, d_new);
+    avr.set_register(d_addr, d_new);
 
-    avr.set_status(Sreg::H, ( d_old & 0b0000_1000 )>>3 == 1);
-    avr.set_status(Sreg::N, msb(d_new));
-    avr.set_status(Sreg::Z, d_new == 0);
-    avr.set_status(Sreg::C, msb(d_old));
-    avr.set_status(Sreg::V, avr.status(Sreg::N) ^ avr.status(Sreg::C));
+    avr.set_bit(avr.b().h, ( d_old & 0b0000_1000 )>>3 == 1);
+    avr.set_bit(avr.b().n, msb(d_new));
+    avr.set_bit(avr.b().z, d_new == 0);
+    avr.set_bit(avr.b().c, msb(d_old));
+    avr.set_bit(avr.b().v, avr.get_bit(avr.b().n) ^ avr.get_bit(avr.b().c));
     avr.signed_test();
 
     avr.pc_increment(1);
@@ -706,15 +734,15 @@ pub fn rol<T: AVR>(avr: &mut T) {
 
 pub fn lsl<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand10() as usize;
-    let d_old = avr.gprg(d_addr);
+    let d_old = avr.get_register(d_addr);
     let d_new = d_old << 1;
-    avr.set_gprg(d_addr, d_new);
+    avr.set_register(d_addr, d_new);
 
-    avr.set_status(Sreg::H, ( d_old & 0b0000_1000 )>>3 == 1);
-    avr.set_status(Sreg::N, msb(d_new));
-    avr.set_status(Sreg::Z, d_new == 0);
-    avr.set_status(Sreg::C, msb(d_old));
-    avr.set_status(Sreg::V, avr.status(Sreg::N) ^ avr.status(Sreg::C));
+    avr.set_bit(avr.b().h, ( d_old & 0b0000_1000 )>>3 == 1);
+    avr.set_bit(avr.b().n, msb(d_new));
+    avr.set_bit(avr.b().z, d_new == 0);
+    avr.set_bit(avr.b().c, msb(d_old));
+    avr.set_bit(avr.b().v, avr.get_bit(avr.b().n) ^ avr.get_bit(avr.b().c));
     avr.signed_test();
 
     avr.pc_increment(1);
@@ -747,151 +775,153 @@ pub fn rjmp<T: AVR>(avr: &mut T) {
 pub fn sts<T: AVR>(avr: &mut T) {
     let (w1, k) = avr.double_word();
     let d_addr = w1.operand5();
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(k.0 as usize, d);
+    let d = avr.get_register(d_addr);
+    avr.set_register(k.0 as usize, d);
     avr.pc_increment(2);
     avr.cycle_increment(2);
 }
 
 pub fn lpm1<T: AVR>(avr: &mut T) {
-    avr.set_gprg(0, avr.z_program_memory());
+    avr.set_register(0, avr.z_program_memory());
     avr.pc_increment(1);
     avr.cycle_increment(3);
 }
 
 pub fn lpm2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    avr.set_gprg(d_addr, avr.z_program_memory());
+    avr.set_register(d_addr, avr.z_program_memory());
     avr.pc_increment(1);
     avr.cycle_increment(3);
 }
 
 pub fn lpm3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    avr.set_gprg(d_addr, avr.z_program_memory());
-    avr.set_preg(Preg::Z, avr.preg(Preg::Z) + 1);
+    avr.set_register(d_addr, avr.z_program_memory());
+    avr.set_word(avr.w().z, avr.get_word(avr.w().z) + 1);
     avr.pc_increment(1);
     avr.cycle_increment(3);
 }
 
 pub fn st1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.preg(Preg::X);
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(x_addr as usize, d);
+    let x_addr = avr.get_word(avr.w().x);
+    let d = avr.get_register(d_addr);
+    avr.set_register(x_addr as usize, d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn st2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.preg(Preg::X);
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(x_addr as usize, d);
-    avr.set_preg(Preg::X, x_addr + 1);
+    let x_addr = avr.get_word(avr.w().x);
+    let d = avr.get_register(d_addr);
+    avr.set_register(x_addr as usize, d);
+    avr.set_word(avr.w().x, x_addr+1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn st3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.preg(Preg::X) - 1;
-    let d = avr.gprg(d_addr);
-    avr.set_preg(Preg::X, x_addr);
-    avr.set_gprg(x_addr as usize, d);
+    let x_addr = avr.get_word(avr.w().x) - 1;
+    let d = avr.get_register(d_addr);
+    avr.set_word(avr.w().x, x_addr);
+    avr.set_register(x_addr as usize, d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn sty1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let y_addr = avr.preg(Preg::Y);
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(y_addr as usize, d);
+    let y_addr = avr.get_word(avr.w().y);
+    let d = avr.get_register(d_addr);
+    avr.set_register(y_addr as usize, d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn sty2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let y_addr = avr.preg(Preg::Y);
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(y_addr as usize, d);
-    avr.set_preg(Preg::Y, y_addr + 1);
+    let y_addr = avr.get_word(avr.w().y);
+    let d = avr.get_register(d_addr);
+    avr.set_register(y_addr as usize, d);
+    avr.set_word(avr.w().y, y_addr+1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn sty3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let y_addr = avr.preg(Preg::Y) - 1;
-    let d = avr.gprg(d_addr);
-    avr.set_preg(Preg::Y, y_addr);
-    avr.set_gprg(y_addr as usize, d);
+    let y_addr = avr.get_word(avr.w().y) - 1;
+    let d = avr.get_register(d_addr);
+    avr.set_word(avr.w().y, y_addr);
+    avr.set_register(y_addr as usize, d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
+
 pub fn stz1<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let z_addr = avr.preg(Preg::Z);
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(z_addr as usize, d);
+    let z_addr = avr.get_word(avr.w().z);
+    let d = avr.get_register(d_addr);
+    avr.set_register(z_addr as usize, d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn stz2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let z_addr = avr.preg(Preg::Z);
-    let d = avr.gprg(d_addr);
-    avr.set_gprg(z_addr as usize, d);
-    avr.set_preg(Preg::Z, z_addr + 1);
+    let z_addr = avr.get_word(avr.w().z);
+    let d = avr.get_register(d_addr);
+    avr.set_register(z_addr as usize, d);
+    avr.set_word(avr.w().z, z_addr + 1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn stz3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let z_addr = avr.preg(Preg::Z) - 1;
-    let d = avr.gprg(d_addr);
-    avr.set_preg(Preg::Z, z_addr);
-    avr.set_gprg(z_addr as usize, d);
+    let z_addr = avr.get_word(avr.w().z) - 1;
+    let d = avr.get_register(d_addr);
+    avr.set_word(avr.w().z, z_addr);
+    avr.set_register(z_addr as usize, d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn cp<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d.wrapping_sub(r);
     avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_status(Sreg::C, d < r);
+    avr.set_bit(avr.b().c, d < r);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn cpi<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     let res = d.wrapping_sub(k);
     avr.set_status_by_arithmetic_instruction(d, k, res);
-    avr.set_status(Sreg::C, d < k);
+    avr.set_bit(avr.b().c, d < k);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn cpc<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
-    let c = avr.status(Sreg::C) as u8;
+    let (r, d) = avr.get_registers(r_addr, d_addr);
+    let c = avr.get_bit(avr.b().c) as u8;
     let res = d.wrapping_sub(r).wrapping_sub(c);
-    avr.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
-    avr.set_status(Sreg::V, has_2complement_overflow(d, r, res));
-    avr.set_status(Sreg::N, msb(res));
+
+    avr.set_bit(avr.b().h, has_borrow_from_bit3(d, r, res));
+    avr.set_bit(avr.b().v, has_2complement_overflow(d, r, res));
+    avr.set_bit(avr.b().n, msb(res));
     if res != 0 {
-        avr.set_status(Sreg::Z, false);
+        avr.set_bit(avr.b().z, false);
     }
-    avr.set_status(Sreg::C, d < r + c);
+    avr.set_bit(avr.b().c, d < r + c);
     avr.signed_test();
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -899,7 +929,7 @@ pub fn cpc<T: AVR>(avr: &mut T) {
 
 pub fn cpse<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     if r == d {
         // The skip size is diffrenet by next instruction size.
         let next_opcode = Word(avr.fetch(avr.pc() + 1));
@@ -926,9 +956,9 @@ pub fn cpse<T: AVR>(avr: &mut T) {
 
 pub fn ori<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     let res = d | k;
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_bit_instruction(res);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -936,9 +966,9 @@ pub fn ori<T: AVR>(avr: &mut T) {
 
 pub fn and<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d & r;
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_bit_instruction(res);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -946,9 +976,9 @@ pub fn and<T: AVR>(avr: &mut T) {
 
 pub fn andi<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand84();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     let res = d & k;
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_bit_instruction(res);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -956,9 +986,9 @@ pub fn andi<T: AVR>(avr: &mut T) {
 
 pub fn or<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d | r;
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_bit_instruction(res);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -966,19 +996,19 @@ pub fn or<T: AVR>(avr: &mut T) {
 
 pub fn eor<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.gprgs(r_addr, d_addr);
+    let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d ^ r;
-    avr.set_gprg(d_addr, res);
+    avr.set_register(d_addr, res);
     avr.set_status_by_bit_instruction(res);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn breq<T: AVR>(avr: &mut T) {
-    if avr.status(Sreg::Z) {
+    if avr.get_bit(avr.b().z) {
         let k = avr.word().operand7();
         let pc = avr.pc();
-        let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
+        let result = add_7bits_in_twos_complement_form(pc, k.wrapping_add(1u8));
         avr.set_pc(result);
         avr.cycle_increment(2);
     } else {
@@ -988,23 +1018,23 @@ pub fn breq<T: AVR>(avr: &mut T) {
 }
 
 pub fn brne<T: AVR>(avr: &mut T) {
-    if avr.status(Sreg::Z) {
+    if avr.get_bit(avr.b().z) {
         avr.pc_increment(1);
         avr.cycle_increment(1);
     } else {
         let k = avr.word().operand7();
         let pc = avr.pc();
-        let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
+        let result = add_7bits_in_twos_complement_form(pc, k.wrapping_add(1u8));
         avr.set_pc(result as u32);
         avr.cycle_increment(2);
     }
 }
 
 pub fn brcs<T: AVR>(avr: &mut T) {
-    if avr.status(Sreg::C) {
+    if avr.get_bit(avr.b().c) {
         let k = avr.word().operand7();
         let pc = avr.pc();
-        let result = add_7bits_in_twos_complement_form(pc, k) + 1u32;
+        let result = add_7bits_in_twos_complement_form(pc, k.wrapping_add(1u8));
         avr.set_pc(result as u32);
         avr.cycle_increment(2);
     } else {
@@ -1016,7 +1046,7 @@ pub fn brcs<T: AVR>(avr: &mut T) {
 pub fn sbis<T: AVR>(avr: &mut T) {
     let (a_addr, b) = avr.word().operand53();
     // I/O Register starts from 0x20(0x32), so there is offset.
-    let a = avr.gprg((a_addr + 0x20) as usize);
+    let a = avr.get_register((a_addr + 0x20) as usize);
     if bit(a, b) {
         // WIP: ATmega328p is 16bit Program Counter machine...
         avr.set_pc(avr.pc() + 2);
@@ -1029,28 +1059,28 @@ pub fn sbis<T: AVR>(avr: &mut T) {
 
 pub fn sbiw<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand62();
-    let (dh, dl) = avr.gprgs(d_addr + 1, d_addr);
+    let (dh, dl) = avr.get_registers(d_addr + 1, d_addr);
     let result = concat(dh, dl).wrapping_sub(k as u16);
-    avr.set_gprg(d_addr + 1, high_bit(result));
-    avr.set_gprg(d_addr, low_bit(result));
+    avr.set_register(d_addr + 1, high_bit(result));
+    avr.set_register(d_addr, low_bit(result));
 
-    avr.set_status(Sreg::V, msb(high_bit(result)) & !msb(dh));
-    avr.set_status(Sreg::C, msb(high_bit(result)) & !msb(dh));
-    avr.set_status(Sreg::N, msb(high_bit(result)));
-    avr.set_status(Sreg::Z, result == 0);
+    avr.set_bit(avr.b().v, msb(high_bit(result)) & !msb(dh));
+    avr.set_bit(avr.b().c, msb(high_bit(result)) & !msb(dh));
+    avr.set_bit(avr.b().n, msb(high_bit(result)));
+    avr.set_bit(avr.b().z, msb(high_bit(result)));
     avr.signed_test();
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn sei<T: AVR>(avr: &mut T) {
-    avr.set_status(Sreg::I, true);
+    avr.set_bit(avr.b().i, true);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn cli<T: AVR>(avr: &mut T) {
-    avr.set_status(Sreg::I, false);
+    avr.set_bit(avr.b().i, false);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
@@ -1064,7 +1094,7 @@ pub fn ret<T: AVR>(avr: &mut T) {
 
 pub fn push<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let d = avr.gprg(d_addr);
+    let d = avr.get_register(d_addr);
     avr.push_stack(d);
     avr.pc_increment(1);
     avr.cycle_increment(2);
@@ -1073,24 +1103,24 @@ pub fn push<T: AVR>(avr: &mut T) {
 pub fn pop<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
     let s = avr.pop_stack();
-    avr.set_gprg(d_addr, s);
+    avr.set_register(d_addr, s);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
 
 pub fn mov<T: AVR>(avr: &mut T) {
     let (r_addr, d_addr) = avr.word().operand55();
-    let r = avr.gprg(r_addr);
-    avr.set_gprg(d_addr, r);
+    let r = avr.get_register(r_addr);
+    avr.set_register(d_addr, r);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
 
 pub fn movw<T: AVR>(avr: &mut T) {
     let (d_addr, r_addr) = avr.word().operand44();
-    let (rl, rh) = avr.gprgs(r_addr, r_addr + 1);
-    avr.set_gprg(d_addr, rl);
-    avr.set_gprg(d_addr + 1, rh);
+    let (rl, rh) = avr.get_registers(r_addr, r_addr + 1);
+    avr.set_register(d_addr, rl);
+    avr.set_register(d_addr + 1, rh);
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }

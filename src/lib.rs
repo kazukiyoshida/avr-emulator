@@ -7,3 +7,4 @@ pub mod instruction;
 pub mod logger;
 pub mod utils;
 pub mod word;
+pub mod memory;
