@@ -67,6 +67,11 @@ pub fn bit(a: u8, n: u8) -> bool {
     ((a & 1 << n) >> n) == 1
 }
 
+pub fn nth_bit_from_left_u16(a: u16, n: u8) -> bool {
+    let index = 15 - n;
+    ((a & 1 << index) >> index) == 1
+}
+
 pub fn high_bit(w: u16) -> u8 {
     (w >> 8) as u8
 }
@@ -108,6 +113,11 @@ fn test_add_in_twos_complement_form() {
         511 - 4,
         add_7bits_in_twos_complement_form(0b1_1111_1111_u32, 0b111_1100_u8)
     );
+    // 0x105 - 0x6
+    // assert_eq!(
+    //     0x105 - 0x6,
+    //     add_7bits_in_twos_complement_form(0x105_u32, 0x7a_u8)
+    // );
 
     // 100 + 3
     assert_eq!(103, add_12bits_in_twos_complement_form(100u32, 0b11_u16));

@@ -1,5 +1,6 @@
 use super::avr::*;
 use super::instruction::*;
+use super::opcode_tree::*;
 use super::memory::*;
 use super::utils::*;
 
@@ -56,11 +57,10 @@ pub struct ATmega328P {
 
 impl AVR for ATmega328P {
     fn execute(&mut self) {
-        let w = self.word();
-        match decode_instr(w) {
-            Some(i) => exec(self, i),
-            None => (),
-        }
+        &OPCODE_TREE.with(|tree| {
+            let instr = tree.find(self.word());
+            instr(self);
+        });
     }
 
     fn flash_memory(&self) -> &dyn Memory<u16> {
