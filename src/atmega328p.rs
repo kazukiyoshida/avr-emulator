@@ -1,17 +1,12 @@
 use super::avr::*;
+use super::memory::*;
 use super::instruction::*;
 use super::utils::*;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 
-pub const GENERAL_PURPOSE_REGISTER_SIZE: usize = 32;
-pub const FLASH_MEMORY_SIZE: usize = 0x8000; // = 0d32768 = 32 KiB. 16bit(~0xffff)で表現可能.
-pub const SRAM_SIZE: usize = 0x900; // = 0d2048  = 2 KiB
-pub const EEPROM_SIZE: usize = 0x400; // = 0d1024  = 1 KiB
-pub const STATUS_REGISTER: usize = 0x5f;
-pub const STACK_POINTER_H: usize = 0x5e;
-pub const STACK_POINTER_L: usize = 0x5d;
-pub const RAMEND: u16 = 0x08ff;
+pub const FLASH_MEMORY_SIZE: usize = 0x8000;
+pub const SRAM_SIZE: usize = 0x900;
+pub const EEPROM_SIZE: usize = 0x400;
+
 pub const REGISTER_MAP: RegisterMap = RegisterMap {
     sreg: 0x5f,
     sph: 0x5e,
@@ -68,18 +63,20 @@ impl AVR for ATmega328P {
         }
     }
 
-    fn run(&mut self, max_cycle: u64) {
-        while self.cycle < max_cycle {
-            self.execute();
-        }
-    }
-
     fn flash_memory(&self) -> &dyn Memory<u16> {
         &self.flash_memory
     }
 
+    fn flash_memory_mut(&mut self) -> &mut dyn Memory<u16> {
+        &mut self.flash_memory
+    }
+
     fn sram(&self) -> &dyn Memory<u8> {
         &self.sram
+    }
+
+    fn sram_mut(&mut self) -> &mut dyn Memory<u8> {
+        &mut self.sram
     }
 
     fn pc(&self) -> u32 {
@@ -90,36 +87,6 @@ impl AVR for ATmega328P {
         self.pc = v;
     }
 
-    fn sp(&self) -> u16 {
-        concat(
-            self.sram.get(STACK_POINTER_H),
-            self.sram.get(STACK_POINTER_L),
-        )
-    }
-
-    fn push_stack(&mut self, v: u8) {
-        self.set_gprg(self.sp() as usize, v);
-        let new_sp = self.sp() - 1;
-        self.sram.set(STACK_POINTER_H, high_bit(new_sp));
-        self.sram.set(STACK_POINTER_L, low_bit(new_sp));
-    }
-
-    fn pop_stack(&mut self) -> u8 {
-        let v = self.gprg((self.sp() + 1u16) as usize);
-        let new_sp = self.sp() + 1;
-        self.sram.set(STACK_POINTER_H, high_bit(new_sp));
-        self.sram.set(STACK_POINTER_L, low_bit(new_sp));
-        v
-    }
-
-    fn gprg(&self, addr: usize) -> u8 {
-        self.sram.get(addr)
-    }
-
-    fn set_gprg(&mut self, addr: usize, v: u8) {
-        self.sram.set(addr, v);
-    }
-
     fn cycle(&self) -> u64 {
         self.cycle
     }
@@ -128,67 +95,33 @@ impl AVR for ATmega328P {
         self.cycle += v;
     }
 
-    fn fetch(&self, p: u32) -> u16 {
-        self.flash_memory.get_by_little_endian(p as usize)
+    fn register_map(&self) -> &'static RegisterMap {
+        &REGISTER_MAP
     }
 
-    fn sreg(&self) -> u8 {
-        self.sram.0[STATUS_REGISTER]
+    fn register_bit_map(&self) -> &'static RegisterBitMap {
+        &REGISTER_BIT_MAP
     }
 
-    fn status(&self, s: Sreg) -> bool {
-        bit(self.sram.0[STATUS_REGISTER], s as u8)
+    fn register_word_map(&self) -> &'static RegisterWordMap {
+        &REGISTER_WORD_MAP
     }
 
-    fn set_status(&mut self, s: Sreg, v: bool) {
-        let n = s as u8;
-        let sreg = &mut self.sram.0[STATUS_REGISTER];
-        if v {
-            *sreg = *sreg | (1 << n);
-        } else {
-            *sreg = *sreg & (*sreg ^ (1 << n));
-        };
-    }
 }
 
 impl ATmega328P {
     pub fn new() -> ATmega328P {
         let mut sram = SRAM::new();
-        sram.set_word(STACK_POINTER_L, RAMEND);
+
+        // setup sram initial state
+        sram.set_word(REGISTER_MAP.spl, REGISTER_MAP.ramend as u16);
+
         ATmega328P {
             flash_memory: FlashMemory::new(),
             sram: sram,
             eeprom: EEPROM::new(),
             pc: 0,
             cycle: 0,
-        }
-    }
-
-    pub fn load_hex(&mut self, filepath: &str) {
-        let f = File::open(filepath).expect("file not found");
-        let f = BufReader::new(f);
-        let mut memory_addr = 0;
-        for line in f.lines() {
-            let line = line.unwrap();
-
-            // Example intel Hex file's line
-            // :060040004A95E9F708955E
-            let record_type = &line[7..9];
-            let data = &line[9..line.len() - 2];
-
-            if record_type != "00" {
-                continue;
-            }
-
-            for list in data.chars().collect::<Vec<char>>().chunks(4) {
-                let a = list[0].to_digit(16).unwrap();
-                let b = list[1].to_digit(16).unwrap();
-                let c = list[2].to_digit(16).unwrap();
-                let d = list[3].to_digit(16).unwrap();
-                self.flash_memory
-                    .set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
-                memory_addr += 1;
-            }
         }
     }
 }
@@ -214,6 +147,7 @@ impl FlashMemory {
         FlashMemory([0; FLASH_MEMORY_SIZE])
     }
 
+    // WIP: u16::bit_ld 関数などが使える
     // メモリの内容をリトルエンディアンとして並び替えて返す
     pub fn get_by_little_endian(&self, a: usize) -> u16 {
         let n = self.0[a];

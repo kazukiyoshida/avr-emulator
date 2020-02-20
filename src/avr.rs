@@ -1,34 +1,105 @@
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use super::utils::*;
 use super::word::*;
-use std::fmt::LowerHex;
+use super::memory::*;
 
 pub trait AVR {
-    fn execute(&mut self);
-    fn run(&mut self, max_cycle: u64);
+    fn register_map(&self) -> &'static RegisterMap;
+    fn register_bit_map(&self) -> &'static RegisterBitMap;
+    fn register_word_map(&self) -> &'static RegisterWordMap;
 
     fn flash_memory(&self) -> &dyn Memory<u16>;
+    fn flash_memory_mut(&mut self) -> &mut dyn Memory<u16>;
     fn sram(&self) -> &dyn Memory<u8>;
+    fn sram_mut(&mut self) -> &mut dyn Memory<u8>;
 
-    // Program Counter
-    // AVR has 16 or 22 bit program counter.
-    // ATmega328p is 16bit PC machine. We need to implement 22bit models soon.
     fn pc(&self) -> u32;
-
     fn set_pc(&mut self, v: u32);
+
+    fn cycle(&self) -> u64;
+    fn cycle_increment(&mut self, v: u64);
+
+    fn execute(&mut self);
+
+    fn run(&mut self, max_cycle: u64) {
+        while self.cycle() < max_cycle {
+            self.execute();
+        }
+    }
+
+    fn get_register(&self, addr: RegisterAddr) -> u8 {
+        self.sram().get(addr)
+    }
+
+    fn get_registers(&self, addr1: RegisterAddr, addr2: RegisterAddr) -> (u8, u8) {
+        (self.sram().get(addr1), self.sram().get(addr2))
+    }
+
+    fn set_register(&mut self, addr: RegisterAddr, v: u8) {
+        self.sram_mut().set(addr, v);
+    }
+
+    fn get_bit(&self, addr: RegisterBitAddr) -> bool {
+        ( self.sram().get(addr.0) & ( 1 << addr.1 ) ) == 1
+    }
+
+    fn set_bit(&mut self, addr: RegisterBitAddr, v: bool) {
+        // WIP
+    }
+
+    fn get_word(&self, addr: RegisterWordAddr) -> u16 {
+        concat(
+            self.get_register(addr.0),
+            self.get_register(addr.1)
+        )
+    }
+
+    fn set_word(&self, addr: RegisterWordAddr, v: u16) {
+        // WIP
+    }
+
+    // alias
+    fn r(&self) -> &'static RegisterMap {
+        self.register_map()
+    }
+
+    // alias
+    fn b(&self) -> &'static RegisterBitMap {
+        self.register_bit_map()
+    }
+
+    // alias, wip
+    fn w(&self) -> &'static RegisterWordMap {
+        self.register_word_map()
+    }
 
     fn pc_increment(&mut self, diff: u32) {
         self.set_pc(self.pc() + diff);
     }
 
-    // Stack Pointer
-    fn sp(&self) -> u16;
+    fn sp(&self) -> u16 {
+        self.get_word(self.w().sp)
+    }
 
-    fn push_stack(&mut self, v: u8);
+    fn push_stack(&mut self, v: u8) {
+        self.set_register(self.sp() as usize, v);
+        let new_sp = self.sp() - 1;
+        let r = self.r();
+        self.sram_mut().set(r.sph, high_bit(new_sp));
+        self.sram_mut().set(r.spl, low_bit(new_sp));
+    }
 
-    fn pop_stack(&mut self) -> u8;
+    fn pop_stack(&mut self) -> u8 {
+        let v = self.get_register((self.sp() + 1u16) as usize);
+        let new_sp = self.sp() + 1;
+        let r = self.r();
+        self.sram_mut().set(r.sph, high_bit(new_sp));
+        self.sram_mut().set(r.spl, low_bit(new_sp));
+        v
+    }
 
     fn push_pc_stack(&mut self, v: u32) {
-        // WIP: ATmega328p is 16bit Program Counter machine...
         let w = (v & 0xffff) as u16;
         self.push_stack(high_bit(w));
         self.push_stack(low_bit(w));
@@ -40,43 +111,9 @@ pub trait AVR {
         concat(h, l)
     }
 
-    // General Purpose Register
-    // 先頭の 0~31 要素が汎用レジスタに当たる.
-    fn gprg(&self, addr: usize) -> u8;
-
-    fn set_gprg(&mut self, addr: usize, v: u8);
-
-    fn gprgs(&self, addr1: usize, addr2: usize) -> (u8, u8) {
-        (self.gprg(addr1), self.gprg(addr2))
+    fn fetch(&self, p: u32) -> u16 {
+        self.flash_memory().get(p as usize)
     }
-
-    fn preg_addresses(&self, x: Preg) -> (usize, usize) {
-        match x {
-            Preg::X => (27, 26),
-            Preg::Y => (29, 28),
-            Preg::Z => (31, 30),
-        }
-    }
-
-    fn preg(&self, x: Preg) -> u16 {
-        let (h, l) = self.preg_addresses(x);
-        concat(self.gprg(h), self.gprg(l))
-    }
-
-    fn set_preg(&mut self, x: Preg, v: u16) {
-        let (h_addr, l_addr) = self.preg_addresses(x);
-        self.set_gprg(h_addr, high_bit(v));
-        self.set_gprg(l_addr, low_bit(v));
-    }
-
-    // Cycle Counter
-    fn cycle(&self) -> u64;
-
-    fn cycle_increment(&mut self, v: u64);
-
-    // Fetch 1 word from Program Memory.
-    // Program Memory has ~0x8000 address, this is coverd by u16(~0xffff).
-    fn fetch(&self, p: u32) -> u16;
 
     fn word(&self) -> Word {
         Word(self.fetch(self.pc()))
@@ -86,36 +123,29 @@ pub trait AVR {
         (Word(self.fetch(self.pc())), Word(self.fetch(self.pc() + 1)))
     }
 
-    fn sreg(&self) -> u8;
-
-    fn status(&self, s: Sreg) -> bool;
-
-    fn set_status(&mut self, s: Sreg, v: bool);
-
+    // WIP: Updating algorithm of status bit is not optimized
     fn set_status_by_arithmetic_instruction(&mut self, d: u8, r: u8, res: u8) {
-        // WIP: Updating algorithm of status bit is not optimized
-        self.set_status(Sreg::H, has_borrow_from_bit3(d, r, res));
-        self.set_status(Sreg::V, has_2complement_overflow(d, r, res));
-        self.set_status(Sreg::N, msb(res));
-        self.set_status(Sreg::Z, res == 0);
+        self.set_bit(self.b().h, has_borrow_from_bit3(d, r, res));
+        self.set_bit(self.b().v, has_2complement_overflow(d, r, res));
+        self.set_bit(self.b().n, msb(res));
+        self.set_bit(self.b().z, res == 0);
         self.signed_test();
     }
 
     fn set_status_by_bit_instruction(&mut self, res: u8) {
-        // WIP: Updating algorithm of status bit is not optimized
-        self.set_status(Sreg::V, false);
-        self.set_status(Sreg::N, msb(res));
-        self.set_status(Sreg::Z, res == 0);
+        self.set_bit(self.b().v, false);
+        self.set_bit(self.b().n, msb(res));
+        self.set_bit(self.b().z, res == 0);
         self.signed_test();
     }
 
     fn signed_test(&mut self) {
-        let s = self.status(Sreg::V) ^ self.status(Sreg::N);
-        self.set_status(Sreg::S, s);
+        let s = self.get_bit(self.b().v) ^ self.get_bit(self.b().n);
+        self.set_bit(self.b().s, s);
     }
 
     fn z_program_memory(&self) -> u8 {
-        let z_addr = self.preg(Preg::Z);
+        let z_addr = self.get_word(self.w().z);
         if z_addr % 2 == 0 {
             let addr = z_addr / 2;
             low_bit(self.fetch(addr as u32))
@@ -124,8 +154,34 @@ pub trait AVR {
             high_bit(self.fetch(addr as u32))
         }
     }
-}
 
+    fn load_hex(&mut self, filepath: &str) {
+        let f = File::open(filepath).expect("file not found");
+        let f = BufReader::new(f);
+        let mut memory_addr = 0;
+        for line in f.lines() {
+            let line = line.unwrap();
+
+            // Example intel Hex file's line
+            // :060040004A95E9F708955E
+            let record_type = &line[7..9];
+            let data = &line[9..line.len() - 2];
+
+            if record_type != "00" {
+                continue;
+            }
+
+            for list in data.chars().collect::<Vec<char>>().chunks(4) {
+                let a = list[0].to_digit(16).unwrap();
+                let b = list[1].to_digit(16).unwrap();
+                let c = list[2].to_digit(16).unwrap();
+                let d = list[3].to_digit(16).unwrap();
+                self.flash_memory_mut()
+                    .set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
+                memory_addr += 1;
+            }
+        }
+    }
 }
 
 macro_rules! define_stationary_struct {

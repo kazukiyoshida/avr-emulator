@@ -4,7 +4,6 @@ use super::utils::*;
 use super::word::*;
 use itertools::izip;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum Instr {
