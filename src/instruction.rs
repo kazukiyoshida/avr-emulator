@@ -9,6 +9,7 @@ use lazy_static::lazy_static;
 pub enum Instr {
     ADD,
     ADC,
+    ADIW,
     SUB,
     SBC,
     SUBI,
@@ -91,6 +92,10 @@ lazy_static! {
         m.push((
             Instr::ADC,
             Opcode(0b0001_1100_0000_0000, 0b1111_1100_0000_0000),
+        ));
+        m.push((
+            Instr::ADIW,
+            Opcode(0b1001_0110_0000_0000, 0b1111_1111_0000_0000),
         ));
         m.push((
             Instr::SUB,
@@ -387,6 +392,7 @@ pub fn exec<T: AVR>(avr: &mut T, i: &Instr) {
     match i {
         &Instr::ADD => add(avr),
         &Instr::ADC => adc(avr),
+        &Instr::ADIW => adiw(avr),
         &Instr::SUB => sub(avr),
         &Instr::SBC => sbc(avr),
         &Instr::SUBI => subi(avr),
@@ -472,6 +478,21 @@ pub fn adc<T: AVR>(avr: &mut T) {
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
+
+pub fn adiw<T: AVR>(avr: &mut T) {
+    let (k, d_addr) = avr.word().operand62();
+    let (dh, dl) = avr.get_registers(d_addr+1, d_addr);
+    let res = concat(dh, dl).wrapping_add(k as u16);
+    avr.set_register(d_addr, high_bit(res));
+    avr.set_register(d_addr+1, low_bit(res));
+
+    avr.set_bit(avr.b().v, !msb(dh) & msb(high_bit(res)));
+    avr.set_bit(avr.b().n, msb(high_bit(res)));
+    avr.set_bit(avr.b().z, res == 0);
+    avr.set_bit(avr.b().c, !msb(high_bit(res)) & msb(dh));
+
+    avr.signed_test();
+
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
