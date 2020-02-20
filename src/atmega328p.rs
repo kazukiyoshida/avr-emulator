@@ -1,6 +1,6 @@
 use super::avr::*;
-use super::memory::*;
 use super::instruction::*;
+use super::memory::*;
 use super::utils::*;
 
 pub const FLASH_MEMORY_SIZE: usize = 0x8000;
@@ -106,7 +106,6 @@ impl AVR for ATmega328P {
     fn register_word_map(&self) -> &'static RegisterWordMap {
         &REGISTER_WORD_MAP
     }
-
 }
 
 impl ATmega328P {

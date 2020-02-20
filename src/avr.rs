@@ -1,8 +1,8 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+use super::memory::*;
 use super::utils::*;
 use super::word::*;
-use super::memory::*;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 pub trait AVR {
     fn register_map(&self) -> &'static RegisterMap;
@@ -41,7 +41,7 @@ pub trait AVR {
     }
 
     fn get_bit(&self, addr: RegisterBitAddr) -> bool {
-        ( self.sram().get(addr.0) & ( 1 << addr.1 ) ) == 1
+        (self.sram().get(addr.0) & (1 << addr.1)) == 1
     }
 
     fn set_bit(&mut self, addr: RegisterBitAddr, v: bool) {
@@ -49,10 +49,7 @@ pub trait AVR {
     }
 
     fn get_word(&self, addr: RegisterWordAddr) -> u16 {
-        concat(
-            self.get_register(addr.0),
-            self.get_register(addr.1)
-        )
+        concat(self.get_register(addr.0), self.get_register(addr.1))
     }
 
     fn set_word(&self, addr: RegisterWordAddr, v: u16) {
@@ -150,7 +147,7 @@ pub trait AVR {
             let addr = z_addr / 2;
             low_bit(self.fetch(addr as u32))
         } else {
-            let addr = ( z_addr - 1 ) / 2;
+            let addr = (z_addr - 1) / 2;
             high_bit(self.fetch(addr as u32))
         }
     }
@@ -194,6 +191,7 @@ macro_rules! define_stationary_struct {
 }
 
 type RegisterBitAddr = (usize, u8);
+#[rustfmt::skip]
 define_stationary_struct!(
     RegisterBitMap,
     RegisterBitAddr,
@@ -201,6 +199,7 @@ define_stationary_struct!(
 );
 
 type RegisterAddr = usize;
+#[rustfmt::skip]
 define_stationary_struct!(
     RegisterMap,
     RegisterAddr,
@@ -209,9 +208,9 @@ define_stationary_struct!(
 );
 
 type RegisterWordAddr = (usize, usize);
+#[rustfmt::skip]
 define_stationary_struct!(
     RegisterWordMap,
     RegisterWordAddr,
     sp, x, y, z
 );
-

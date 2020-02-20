@@ -14,7 +14,11 @@ pub struct Log {
 
 impl fmt::Display for Log {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}\n{}\n{}\n..{}", self.processor, self.registers, self.sram, self.stack)
+        write!(
+            f,
+            "{}\n{}\n{}\n..{}",
+            self.processor, self.registers, self.sram, self.stack
+        )
     }
 }
 
@@ -29,7 +33,10 @@ impl Log {
     }
 
     pub fn all(&self) -> String {
-        format!("{}\n{}\n{}\n{}", self.processor, self.registers, self.sram, self.stack)
+        format!(
+            "{}\n{}\n{}\n{}",
+            self.processor, self.registers, self.sram, self.stack
+        )
     }
 
     pub fn diff(&self, log: &Log) -> String {

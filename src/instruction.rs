@@ -1,75 +1,18 @@
-use std::process;
 use super::avr::*;
 use super::utils::*;
 use super::word::*;
 use itertools::izip;
 use lazy_static::lazy_static;
+use std::process;
 
+#[rustfmt::skip]
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum Instr {
-    ADD,
-    ADC,
-    ADIW,
-    SUB,
-    SBC,
-    SUBI,
-    SBCI,
-    SBIW,
-    DEC,
-    COM,
-    LD1,
-    LD2,
-    LD3,
-    LDI,
-    LDDY1,
-    LDDY2,
-    LDDY3,
-    LDDZ1,
-    LDDZ2,
-    LDDZ3,
-    LDS,
-    OUT,
-    IN,
-    NOP,
-    CALL,
-    RCALL,
-    ROL,
-    LSL,
-    JMP,
-    RJMP,
-    AND,
-    ANDI,
-    OR,
-    EOR,
-    ORI,
-    STS,
-    ST1,
-    ST2,
-    ST3,
-    STY1,
-    STY2,
-    STY3,
-    STZ1,
-    STZ2,
-    STZ3,
-    LPM1,
-    LPM2,
-    LPM3,
-    CP,
-    CPI,
-    CPC,
-    CPSE,
-    BREQ,
-    BRNE,
-    BRCS,
-    SBIS,
-    SEI,
-    CLI,
-    RET,
-    PUSH,
-    POP,
-    MOV,
-    MOVW,
+    ADD, ADC, ADIW, SUB, SBC, SUBI, SBCI, SBIW, DEC, COM, LD1, LD2, LD3, LDI,
+    LDDY1, LDDY2, LDDY3, LDDZ1, LDDZ2, LDDZ3, LDS, OUT, IN, NOP, CALL, RCALL,
+    ROL, LSL, JMP, RJMP, AND, ANDI, OR, EOR, ORI, STS, ST1, ST2, ST3, STY1,
+    STY2, STY3, STZ1, STZ2, STZ3, LPM1, LPM2, LPM3, CP, CPI, CPC, CPSE, BREQ,
+    BRNE, BRCS, SBIS, SEI, CLI, RET, PUSH, POP, MOV, MOVW,
 }
 
 pub struct Opcode(pub u16, pub u16);
@@ -481,10 +424,10 @@ pub fn adc<T: AVR>(avr: &mut T) {
 
 pub fn adiw<T: AVR>(avr: &mut T) {
     let (k, d_addr) = avr.word().operand62();
-    let (dh, dl) = avr.get_registers(d_addr+1, d_addr);
+    let (dh, dl) = avr.get_registers(d_addr + 1, d_addr);
     let res = concat(dh, dl).wrapping_add(k as u16);
     avr.set_register(d_addr, high_bit(res));
-    avr.set_register(d_addr+1, low_bit(res));
+    avr.set_register(d_addr + 1, low_bit(res));
 
     avr.set_bit(avr.b().v, !msb(dh) & msb(high_bit(res)));
     avr.set_bit(avr.b().n, msb(high_bit(res)));
@@ -600,7 +543,7 @@ pub fn ld2<T: AVR>(avr: &mut T) {
 
 pub fn ld3<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x) -1;
+    let x_addr = avr.get_word(avr.w().x) - 1;
     avr.set_word(avr.w().x, x_addr);
     let x = avr.get_register(x_addr as usize);
     avr.set_register(d_addr, x);
@@ -636,7 +579,7 @@ pub fn lddy2<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand5();
     let y_addr = avr.get_word(avr.w().y);
     avr.set_register(d_addr, avr.get_register(y_addr as usize));
-    avr.set_word(avr.w().y, y_addr+1);
+    avr.set_word(avr.w().y, y_addr + 1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
@@ -687,7 +630,8 @@ pub fn out<T: AVR>(avr: &mut T) {
 pub fn in_instr<T: AVR>(avr: &mut T) {
     let (a_addr, d_addr) = avr.word().operand65();
     let a = avr.get_register(a_addr);
-    if a_addr == 0x5f { // SREG
+    if a_addr == 0x5f {
+        // SREG
         avr.set_register(d_addr, a & 0b111_1111);
     } else {
         avr.set_register(d_addr, a);
@@ -718,10 +662,10 @@ pub fn rol<T: AVR>(avr: &mut T) {
     let d_addr = avr.word().operand10() as usize;
     let d_old = avr.get_register(d_addr);
     let c = avr.get_bit(avr.b().c) as u8;
-    let d_new = ( d_old << 1 ) | c;
+    let d_new = (d_old << 1) | c;
     avr.set_register(d_addr, d_new);
 
-    avr.set_bit(avr.b().h, ( d_old & 0b0000_1000 )>>3 == 1);
+    avr.set_bit(avr.b().h, (d_old & 0b0000_1000) >> 3 == 1);
     avr.set_bit(avr.b().n, msb(d_new));
     avr.set_bit(avr.b().z, d_new == 0);
     avr.set_bit(avr.b().c, msb(d_old));
@@ -738,7 +682,7 @@ pub fn lsl<T: AVR>(avr: &mut T) {
     let d_new = d_old << 1;
     avr.set_register(d_addr, d_new);
 
-    avr.set_bit(avr.b().h, ( d_old & 0b0000_1000 )>>3 == 1);
+    avr.set_bit(avr.b().h, (d_old & 0b0000_1000) >> 3 == 1);
     avr.set_bit(avr.b().n, msb(d_new));
     avr.set_bit(avr.b().z, d_new == 0);
     avr.set_bit(avr.b().c, msb(d_old));
@@ -816,7 +760,7 @@ pub fn st2<T: AVR>(avr: &mut T) {
     let x_addr = avr.get_word(avr.w().x);
     let d = avr.get_register(d_addr);
     avr.set_register(x_addr as usize, d);
-    avr.set_word(avr.w().x, x_addr+1);
+    avr.set_word(avr.w().x, x_addr + 1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
@@ -845,7 +789,7 @@ pub fn sty2<T: AVR>(avr: &mut T) {
     let y_addr = avr.get_word(avr.w().y);
     let d = avr.get_register(d_addr);
     avr.set_register(y_addr as usize, d);
-    avr.set_word(avr.w().y, y_addr+1);
+    avr.set_word(avr.w().y, y_addr + 1);
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
@@ -942,11 +886,11 @@ pub fn cpse<T: AVR>(avr: &mut T) {
                     avr.set_pc(avr.pc() + 2);
                     avr.cycle_increment(2);
                 };
-            },
+            }
             None => {
                 println!("instruction decode failed: {:016b}", next_opcode.0);
                 process::exit(1);
-            },
+            }
         };
     } else {
         avr.pc_increment(1);
