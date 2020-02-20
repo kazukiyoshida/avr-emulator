@@ -126,24 +126,36 @@ pub trait AVR {
     }
 }
 
-// Status Register
-#[derive(Eq, PartialEq, Debug)]
-pub enum Sreg {
-    C,
-    Z,
-    N,
-    V,
-    S,
-    H,
-    T,
-    I,
 }
 
-// Pointer Register
-#[derive(Eq, PartialEq, Debug)]
-pub enum Preg {
-    X,
-    Y,
-    Z,
+macro_rules! define_stationary_struct {
+    ($structName: ident, $type: ty, $( $key: ident ),* ) => {
+        #[derive(Debug)]
+        pub struct $structName {
+            $( pub $key: $type, )*
+        }
+    };
 }
+
+type RegisterBitAddr = (usize, u8);
+define_stationary_struct!(
+    RegisterBitMap,
+    RegisterBitAddr,
+    c, z, n, v, s, h, t, i
+);
+
+type RegisterAddr = usize;
+define_stationary_struct!(
+    RegisterMap,
+    RegisterAddr,
+    sreg, sph, spl, ocr0b, ocr0a, tcnt0, tccr0b, tccr0a, portd, ddrd, pind,
+    portc, ddrc, pinc, portb, ddrb, pinb, ramend
+);
+
+type RegisterWordAddr = (usize, usize);
+define_stationary_struct!(
+    RegisterWordMap,
+    RegisterWordAddr,
+    sp, x, y, z
+);
 

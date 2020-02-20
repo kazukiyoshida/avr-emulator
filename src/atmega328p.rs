@@ -12,6 +12,44 @@ pub const STATUS_REGISTER: usize = 0x5f;
 pub const STACK_POINTER_H: usize = 0x5e;
 pub const STACK_POINTER_L: usize = 0x5d;
 pub const RAMEND: u16 = 0x08ff;
+pub const REGISTER_MAP: RegisterMap = RegisterMap {
+    sreg: 0x5f,
+    sph: 0x5e,
+    spl: 0x5d,
+    ocr0b: 0x48,
+    ocr0a: 0x47,
+    tcnt0: 0x46,
+    tccr0b: 0x45,
+    tccr0a: 0x44,
+    portd: 0x2b,
+    ddrd: 0x2a,
+    pind: 0x29,
+    portc: 0x28,
+    ddrc: 0x27,
+    pinc: 0x26,
+    portb: 0x25,
+    ddrb: 0x24,
+    pinb: 0x23,
+    ramend: 0x08ff,
+};
+
+pub const REGISTER_BIT_MAP: RegisterBitMap = RegisterBitMap {
+    c: (REGISTER_MAP.sreg, 0),
+    z: (REGISTER_MAP.sreg, 1),
+    n: (REGISTER_MAP.sreg, 2),
+    v: (REGISTER_MAP.sreg, 3),
+    s: (REGISTER_MAP.sreg, 4),
+    h: (REGISTER_MAP.sreg, 5),
+    t: (REGISTER_MAP.sreg, 6),
+    i: (REGISTER_MAP.sreg, 7),
+};
+
+pub const REGISTER_WORD_MAP: RegisterWordMap = RegisterWordMap {
+    sp: (REGISTER_MAP.sph, REGISTER_MAP.spl),
+    x: (27, 26),
+    y: (29, 28),
+    z: (31, 30),
+};
 
 pub struct ATmega328P {
     pub flash_memory: FlashMemory,
