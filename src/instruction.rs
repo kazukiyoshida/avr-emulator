@@ -17,6 +17,8 @@ pub const INSTRUCTION_32_BIT: [Instr; 4] = [
     Instr::CALL, Instr::JMP, Instr::LDS, Instr::STS,
 ];
 
+pub type InstrFunc = &'static dyn Fn(&mut dyn AVR);
+
 pub fn add(avr: &mut dyn AVR) {
     let (r_addr, d_addr) = avr.word().operand55();
     let (r, d) = avr.get_registers(r_addr, d_addr);
@@ -505,7 +507,7 @@ pub fn cpse(avr: &mut dyn AVR) {
     if r == d {
         // The skip size is diffrenet by next instruction size.
         let next_opcode = Word(avr.fetch(avr.pc() + 1));
-        let instr = avr.decode_instr(next_opcode);
+        let (instr, _) = avr.decode_instr(next_opcode);
         if INSTRUCTION_32_BIT.contains(&instr) {
             avr.set_pc(avr.pc() + 3);
             avr.cycle_increment(3);

@@ -1,6 +1,5 @@
 use super::avr::*;
 use super::memory::*;
-use super::opcode_tree::*;
 use super::utils::*;
 
 pub const FLASH_MEMORY_SIZE: usize = 0x8000;
@@ -56,10 +55,8 @@ pub struct ATmega328P {
 
 impl AVR for ATmega328P {
     fn execute(&mut self) {
-        &OPCODE_TREE.with(|tree| {
-            let (_, instr_func) = tree.find(self.word());
-            instr_func(self);
-        });
+        let (_, instr_func) = self.decode_instr(self.word());
+        instr_func(self);
     }
 
     fn flash_memory(&self) -> &dyn Memory<u16> {

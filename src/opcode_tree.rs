@@ -1,10 +1,7 @@
-use super::avr::*;
 use super::instruction::*;
 use super::utils::*;
-use super::word::*;
 
 type Tree = Option<Box<Node>>;
-type InstrFunc = &'static dyn Fn(&mut dyn AVR);
 type Opcode = (u16, u16);
 
 #[derive(Default)]
@@ -63,9 +60,8 @@ impl Node {
         }
     }
 
-    pub fn find(&self, word: Word) -> (Instr, InstrFunc) {
-        let w = word.0;
-        self.find_recursive(w, 0).unwrap()
+    pub fn find(&self, word: u16) -> (Instr, InstrFunc) {
+        self.find_recursive(word, 0).unwrap()
     }
 
     fn find_recursive(&self, w: u16, depth: u8) -> Option<(Instr, InstrFunc)> {
@@ -167,8 +163,8 @@ thread_local! {
 #[test]
 fn test_node() {
     &OPCODE_TREE.with(|f| {
-        let f1 = f.find(Word(0b0000_1100_0000_0000));
-        let f2 = f.find(Word(0b0001_1100_0000_0000));
-        // let f3 = f.find(Word(0b1111_1100_0000_0000)); // panic
+        let f1 = f.find(0b0000_1100_0000_0000);
+        let f2 = f.find(0b0001_1100_0000_0000);
+        // let f3 = f.find(0b1111_1100_0000_0000); // panic
     });
 }

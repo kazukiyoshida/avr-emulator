@@ -24,11 +24,8 @@ pub trait AVR {
 
     fn execute(&mut self);
 
-    fn decode_instr(&mut self, word: Word) -> Instr {
-        OPCODE_TREE.with(|tree| {
-            let (instr, _) = tree.find(word);
-            instr
-        })
+    fn decode_instr(&mut self, word: Word) -> (Instr, InstrFunc) {
+        OPCODE_TREE.with(|tree| tree.find(word.0))
     }
 
     fn run(&mut self, max_cycle: u64) {
