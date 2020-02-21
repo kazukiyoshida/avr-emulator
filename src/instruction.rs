@@ -4,21 +4,6 @@ use super::utils::*;
 use super::word::*;
 use std::process;
 
-#[rustfmt::skip]
-#[derive(Eq, PartialEq, Hash, Debug, Clone)]
-pub enum Instr {
-    ADD, ADC, ADIW, SUB, SBC, SUBI, SBCI, SBIW, DEC, COM, LD1, LD2, LD3, LDI,
-    LDDY1, LDDY2, LDDY3, LDDZ1, LDDZ2, LDDZ3, LDS, OUT, IN, NOP, CALL, RCALL,
-    ROL, LSL, JMP, RJMP, AND, ANDI, OR, EOR, ORI, STS, ST1, ST2, ST3, STY1,
-    STY2, STY3, STZ1, STZ2, STZ3, LPM1, LPM2, LPM3, CP, CPI, CPC, CPSE, BREQ,
-    BRNE, BRCS, SBIS, SEI, CLI, RET, PUSH, POP, MOV, MOVW,
-}
-
-#[rustfmt::skip]
-pub const INSTRUCTION_32_BIT: [Instr; 4] = [
-    Instr::CALL, Instr::JMP, Instr::LDS, Instr::STS,
-];
-
 pub fn add(avr: &mut dyn AVR) {
     let (r_addr, d_addr) = avr.word().operand55();
     let (r, d) = avr.get_registers(r_addr, d_addr);

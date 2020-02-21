@@ -58,8 +58,8 @@ pub struct ATmega328P {
 impl AVR for ATmega328P {
     fn execute(&mut self) {
         &OPCODE_TREE.with(|tree| {
-            let instr = tree.find(self.word());
-            instr(self);
+            let ( instr, instr_func ) = tree.find(self.word());
+            instr_func(self);
         });
     }
 
