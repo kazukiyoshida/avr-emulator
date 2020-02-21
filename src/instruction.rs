@@ -1,8 +1,21 @@
 use super::avr::*;
-use super::atmega328p::*;
 use super::utils::*;
 use super::word::*;
-use std::process;
+
+#[rustfmt::skip]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub enum Instr {
+    ADD, ADC, ADIW, SUB, SBC, SUBI, SBCI, SBIW, DEC, COM, LD1, LD2, LD3, LDI,
+    LDDY1, LDDY2, LDDY3, LDDZ1, LDDZ2, LDDZ3, LDS, OUT, IN, NOP, CALL, RCALL,
+    ROL, LSL, JMP, RJMP, AND, ANDI, OR, EOR, ORI, STS, ST1, ST2, ST3, STY1,
+    STY2, STY3, STZ1, STZ2, STZ3, LPM1, LPM2, LPM3, CP, CPI, CPC, CPSE, BREQ,
+    BRNE, BRCS, SBIS, SEI, CLI, RET, PUSH, POP, MOV, MOVW,
+}
+
+#[rustfmt::skip]
+pub const INSTRUCTION_32_BIT: [Instr; 4] = [
+    Instr::CALL, Instr::JMP, Instr::LDS, Instr::STS,
+];
 
 pub fn add(avr: &mut dyn AVR) {
     let (r_addr, d_addr) = avr.word().operand55();
@@ -31,13 +44,13 @@ pub fn adiw(avr: &mut dyn AVR) {
     let (k, d_addr) = avr.word().operand62();
     let (dh, dl) = avr.get_registers(d_addr + 1, d_addr);
     let res = concat(dh, dl).wrapping_add(k as u16);
-    avr.set_register(d_addr, high_bit(res));
-    avr.set_register(d_addr + 1, low_bit(res));
+    avr.set_register(d_addr, high_byte(res));
+    avr.set_register(d_addr + 1, low_byte(res));
 
-    avr.set_bit(avr.b().v, !msb(dh) & msb(high_bit(res)));
-    avr.set_bit(avr.b().n, msb(high_bit(res)));
+    avr.set_bit(avr.b().v, !msb(dh) & msb(high_byte(res)));
+    avr.set_bit(avr.b().n, msb(high_byte(res)));
     avr.set_bit(avr.b().z, res == 0);
-    avr.set_bit(avr.b().c, !msb(high_bit(res)) & msb(dh));
+    avr.set_bit(avr.b().c, !msb(high_byte(res)) & msb(dh));
 
     avr.signed_test();
 
@@ -260,8 +273,6 @@ pub fn nop(avr: &mut dyn AVR) {
 
 pub fn call(avr: &mut dyn AVR) {
     // Push current pc to stack
-    // WIP: ATmega328p is 16bit Program Counter machine...
-    //      if pc is 16 bit, then sp-2. if pc is 22 bit then sp-3.
     avr.push_pc_stack(avr.pc() + 2);
 
     // Update pc by immediate
@@ -306,7 +317,6 @@ pub fn lsl(avr: &mut dyn AVR) {
     avr.cycle_increment(3);
 }
 
-// WIP
 pub fn rcall(avr: &mut dyn AVR) {
     let k = avr.word().operand12() as u32;
     let pc = avr.pc();
@@ -495,21 +505,14 @@ pub fn cpse(avr: &mut dyn AVR) {
     if r == d {
         // The skip size is diffrenet by next instruction size.
         let next_opcode = Word(avr.fetch(avr.pc() + 1));
-        // match decode_instr(next_opcode) {
-        //     Some(i) => {
-        //         if INSTRUCTION_32_BIT.contains(&i) {
-        //             avr.set_pc(avr.pc() + 3);
-        //             avr.cycle_increment(3);
-        //         } else {
-        //             avr.set_pc(avr.pc() + 2);
-        //             avr.cycle_increment(2);
-        //         };
-        //     }
-        //     None => {
-        //         println!("instruction decode failed: {:016b}", next_opcode.0);
-        //         process::exit(1);
-        //     }
-        // };
+        let instr = avr.decode_instr(next_opcode);
+        if INSTRUCTION_32_BIT.contains(&instr) {
+            avr.set_pc(avr.pc() + 3);
+            avr.cycle_increment(3);
+        } else {
+            avr.set_pc(avr.pc() + 2);
+            avr.cycle_increment(2);
+        };
     } else {
         avr.pc_increment(1);
         avr.cycle_increment(1);
@@ -626,13 +629,13 @@ pub fn sbiw(avr: &mut dyn AVR) {
     let (k, d_addr) = avr.word().operand62();
     let (dh, dl) = avr.get_registers(d_addr + 1, d_addr);
     let result = concat(dh, dl).wrapping_sub(k as u16);
-    avr.set_register(d_addr + 1, high_bit(result));
-    avr.set_register(d_addr, low_bit(result));
+    avr.set_register(d_addr + 1, high_byte(result));
+    avr.set_register(d_addr, low_byte(result));
 
-    avr.set_bit(avr.b().v, msb(high_bit(result)) & !msb(dh));
-    avr.set_bit(avr.b().c, msb(high_bit(result)) & !msb(dh));
-    avr.set_bit(avr.b().n, msb(high_bit(result)));
-    avr.set_bit(avr.b().z, msb(high_bit(result)));
+    avr.set_bit(avr.b().v, msb(high_byte(result)) & !msb(dh));
+    avr.set_bit(avr.b().c, msb(high_byte(result)) & !msb(dh));
+    avr.set_bit(avr.b().n, msb(high_byte(result)));
+    avr.set_bit(avr.b().z, msb(high_byte(result)));
     avr.signed_test();
     avr.pc_increment(1);
     avr.cycle_increment(2);

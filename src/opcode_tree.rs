@@ -1,11 +1,10 @@
 use super::avr::*;
-use super::atmega328p::*;
 use super::instruction::*;
 use super::utils::*;
 use super::word::*;
 
 type Tree = Option<Box<Node>>;
-type InstrFunc = &'static Fn(&mut AVR);
+type InstrFunc = &'static dyn Fn(&mut dyn AVR);
 type Opcode = (u16, u16);
 
 #[derive(Default)]
@@ -19,111 +18,80 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn add(&mut self, opcode: Opcode, instr: Instr, f: &'static Fn(&mut AVR)) {
+    pub fn add(&mut self, opcode: Opcode, instr: Instr, f: InstrFunc) {
         self.insert(0, opcode, instr, f);
     }
 
-    fn insert(
-        &mut self,
-        depth: u8,
-        opcode: Opcode,
-        instr: Instr,
-        f: &'static Fn(&mut AVR)
-    ) {
+    fn insert(&mut self, depth: u8, opcode: Opcode, instr: Instr, f: InstrFunc) {
         if depth >= 15 {
             self.instr = Some(instr);
             self.f = Some(f);
-            return
+            return;
         }
 
-        let is_undef =  nth_bit_from_left_u16(opcode.1, depth);
-        let is_on =  nth_bit_from_left_u16(opcode.0, depth);
+        let is_undef = nth_bit_from_left_u16(opcode.1, depth);
+        let is_on = nth_bit_from_left_u16(opcode.0, depth);
 
         match (is_undef, is_on) {
-            (true, true) => {
-                match &mut self.on {
-                    Some(n) => n.insert(depth+1, opcode, instr, f),
-                    None => {
-                        let mut n: Node = Default::default();
-                        n.depth = depth + 1;
-                        n.insert(depth + 1, opcode, instr, f);
-                        self.on = Some(Box::new(n));
-                    },
+            (true, true) => match &mut self.on {
+                Some(n) => n.insert(depth + 1, opcode, instr, f),
+                None => {
+                    let mut n: Node = Default::default();
+                    n.depth = depth + 1;
+                    n.insert(depth + 1, opcode, instr, f);
+                    self.on = Some(Box::new(n));
                 }
             },
-            (true, false) => {
-                match &mut self.off {
-                    Some(n) => n.insert(depth+1, opcode, instr, f),
-                    None => {
-                        let mut n: Node = Default::default();
-                        n.depth = depth + 1;
-                        n.insert(depth + 1, opcode, instr, f);
-                        self.off = Some(Box::new(n));
-                    },
+            (true, false) => match &mut self.off {
+                Some(n) => n.insert(depth + 1, opcode, instr, f),
+                None => {
+                    let mut n: Node = Default::default();
+                    n.depth = depth + 1;
+                    n.insert(depth + 1, opcode, instr, f);
+                    self.off = Some(Box::new(n));
                 }
             },
-            (false, _) => {
-                match &mut self.undef {
-                    Some(n) => n.insert(depth+1, opcode, instr, f),
-                    None => {
-                        let mut n: Node = Default::default();
-                        n.depth = depth + 1;
-                        n.insert(depth + 1, opcode, instr, f);
-                        self.undef = Some(Box::new(n));
-                    },
+            (false, _) => match &mut self.undef {
+                Some(n) => n.insert(depth + 1, opcode, instr, f),
+                None => {
+                    let mut n: Node = Default::default();
+                    n.depth = depth + 1;
+                    n.insert(depth + 1, opcode, instr, f);
+                    self.undef = Some(Box::new(n));
                 }
             },
         }
     }
 
-    pub fn find(&self, word: Word) -> ( Instr, InstrFunc ) {
+    pub fn find(&self, word: Word) -> (Instr, InstrFunc) {
         let w = word.0;
         self.find_recursive(w, 0).unwrap()
     }
 
-    fn find_recursive(&self, w: u16, depth: u8) -> Option<( Instr, InstrFunc )> {
+    fn find_recursive(&self, w: u16, depth: u8) -> Option<(Instr, InstrFunc)> {
         if depth >= 15 {
-            return Some( ( self.instr.unwrap(), self.f.unwrap() ) )
+            return Some((self.instr.unwrap(), self.f.unwrap()));
         }
 
         if nth_bit_from_left_u16(w, depth) {
             match &self.on {
-                Some(n) => n.find_recursive(w, depth+1),
-                None => {
-                    match &self.undef {
-                        Some(n) => n.find_recursive(w, depth+1),
-                        None => panic!("there is no on & undef"),
-                    }
+                Some(n) => n.find_recursive(w, depth + 1),
+                None => match &self.undef {
+                    Some(n) => n.find_recursive(w, depth + 1),
+                    None => panic!("there is no on & undef"),
                 },
             }
         } else {
             match &self.off {
-                Some(n) => n.find_recursive(w, depth+1),
-                None => {
-                    match &self.undef {
-                        Some(n) => n.find_recursive(w, depth+1),
-                        None => panic!("there is no off & undef"),
-                    }
+                Some(n) => n.find_recursive(w, depth + 1),
+                None => match &self.undef {
+                    Some(n) => n.find_recursive(w, depth + 1),
+                    None => panic!("there is no off & undef"),
                 },
             }
         }
     }
 }
-
-#[rustfmt::skip]
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
-pub enum Instr {
-    ADD, ADC, ADIW, SUB, SBC, SUBI, SBCI, SBIW, DEC, COM, LD1, LD2, LD3, LDI,
-    LDDY1, LDDY2, LDDY3, LDDZ1, LDDZ2, LDDZ3, LDS, OUT, IN, NOP, CALL, RCALL,
-    ROL, LSL, JMP, RJMP, AND, ANDI, OR, EOR, ORI, STS, ST1, ST2, ST3, STY1,
-    STY2, STY3, STZ1, STZ2, STZ3, LPM1, LPM2, LPM3, CP, CPI, CPC, CPSE, BREQ,
-    BRNE, BRCS, SBIS, SEI, CLI, RET, PUSH, POP, MOV, MOVW,
-}
-
-#[rustfmt::skip]
-pub const INSTRUCTION_32_BIT: [Instr; 4] = [
-    Instr::CALL, Instr::JMP, Instr::LDS, Instr::STS,
-];
 
 thread_local! {
     #[rustfmt::skip]

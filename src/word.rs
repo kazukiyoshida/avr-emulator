@@ -1,18 +1,9 @@
-use super::utils::*;
 use std::iter::IntoIterator;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Word(pub u16);
 
 impl Word {
-    pub fn high(&self) -> u8 {
-        high_bit(self.0)
-    }
-
-    pub fn low(&self) -> u8 {
-        low_bit(self.0)
-    }
-
     // r, d
     pub fn operand55(&self) -> (usize, usize) {
         (
@@ -120,4 +111,36 @@ impl Iterator for WordIter {
         self.seeker += 1;
         Some(bit == 1)
     }
+}
+
+pub fn operand(word: u16, mask: u16) -> u16 {
+    let mut k = 0;
+    Word(word)
+        .into_iter()
+        .zip(Word(mask).into_iter())
+        .fold(0, |mut s, (word_bit, mask_bit)| {
+            if mask_bit && word_bit {
+                s = s | (1 << k)
+            }
+            if mask_bit {
+                k += 1;
+            }
+            s
+        })
+}
+
+#[test]
+fn test_operand() {
+    assert_eq!(
+        operand(0b1111_1111_1111_1111, 0b0000_1111_0000_1111),
+        0b0000_0000_1111_1111
+    );
+    assert_eq!(
+        operand(0b0000_0000_0000_0000, 0b0000_1111_0000_1111),
+        0b0000_0000_0000_0000
+    );
+    assert_eq!(
+        operand(0b1111_1001_1111_0110, 0b0000_1111_0000_1101),
+        0b0000_0000_0100_1010
+    );
 }

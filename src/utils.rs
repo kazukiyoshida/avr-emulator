@@ -1,42 +1,16 @@
-use super::word::*;
-
-pub fn operand(word: u16, mask: u16) -> u16 {
-    let mut k = 0;
-    Word(word)
-        .into_iter()
-        .zip(Word(mask).into_iter())
-        .fold(0, |mut s, (word_bit, mask_bit)| {
-            if mask_bit && word_bit {
-                s = s | (1 << k)
-            }
-            if mask_bit {
-                k += 1;
-            }
-            s
-        })
-}
-
-#[test]
-fn test_operand() {
-    assert_eq!(
-        operand(0b1111_1111_1111_1111, 0b0000_1111_0000_1111),
-        0b0000_0000_1111_1111
-    );
-    assert_eq!(
-        operand(0b0000_0000_0000_0000, 0b0000_1111_0000_1111),
-        0b0000_0000_0000_0000
-    );
-    assert_eq!(
-        operand(0b1111_1001_1111_0110, 0b0000_1111_0000_1101),
-        0b0000_0000_0100_1010
-    );
-}
-
 pub fn msb(b: u8) -> bool {
     b >> 7 == 1
 }
 
 pub fn lsb(b: u8) -> bool {
+    b & 1 == 1
+}
+
+pub fn msb_u16(b: u16) -> bool {
+    b >> 15 == 1
+}
+
+pub fn lsb_u16(b: u16) -> bool {
     b & 1 == 1
 }
 
@@ -72,11 +46,11 @@ pub fn nth_bit_from_left_u16(a: u16, n: u8) -> bool {
     ((a & 1 << index) >> index) == 1
 }
 
-pub fn high_bit(w: u16) -> u8 {
+pub fn high_byte(w: u16) -> u8 {
     (w >> 8) as u8
 }
 
-pub fn low_bit(w: u16) -> u8 {
+pub fn low_byte(w: u16) -> u8 {
     (w & 0b11111111) as u8
 }
 
@@ -139,7 +113,7 @@ fn test_bit() {
     assert!(!bit(0b1100, 1));
     assert!(bit(0b1100, 2));
     assert!(bit(0b1100, 3));
-    assert_eq!(high_bit(0b1100_0011_0011_1100), 0b1100_0011);
-    assert_eq!(low_bit(0b1100_0011_0011_1100), 0b0011_1100);
+    assert_eq!(high_byte(0b1100_0011_0011_1100), 0b1100_0011);
+    assert_eq!(low_byte(0b1100_0011_0011_1100), 0b0011_1100);
     assert_eq!(concat(0b1100_0011, 0b01111_0000), 0b1100_0011_1111_0000);
 }
