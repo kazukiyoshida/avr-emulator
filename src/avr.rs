@@ -1,4 +1,5 @@
 use super::memory::*;
+use super::opcode_tree::*;
 use super::utils::*;
 use super::word::*;
 use std::fs::File;
@@ -21,6 +22,10 @@ pub trait AVR {
     fn cycle_increment(&mut self, v: u64);
 
     fn execute(&mut self);
+
+    fn decode_instr(&mut self, word: Word) -> (Instr, InstrFunc) {
+        OPCODE_TREE.with(|tree| tree.find(word.0))
+    }
 
     fn run(&mut self, max_cycle: u64) {
         while self.cycle() < max_cycle {
