@@ -77,10 +77,6 @@ impl Word {
 fn test_word() {
     let w = Word(0b1001_0100_0000_1110);
     assert_eq!(w.operand22(Word(0b0000_0001_1100_1100)), 0b111001100);
-
-    let w = Word(0b00001111_11110000);
-    assert_eq!(0b00001111, w.high());
-    assert_eq!(0b11110000, w.low());
 }
 
 pub struct WordIter {

@@ -163,8 +163,8 @@ thread_local! {
 #[test]
 fn test_node() {
     &OPCODE_TREE.with(|f| {
-        let f1 = f.find(0b0000_1100_0000_0000);
-        let f2 = f.find(0b0001_1100_0000_0000);
-        // let f3 = f.find(0b1111_1100_0000_0000); // panic
+        let _f1 = f.find(0b0000_1100_0000_0000);
+        let _f2 = f.find(0b0001_1100_0000_0000);
+        // let _f3 = f.find(0b1111_1100_0000_0000); // panic
     });
 }
