@@ -166,8 +166,8 @@ impl SRAM {
     }
 
     fn set_word(&mut self, a: usize, v: u16) {
-        self.set(a, low_bit(v));
-        self.set(a + 1, high_bit(v));
+        self.set(a, low_byte(v));
+        self.set(a + 1, high_byte(v));
     }
 }
 
