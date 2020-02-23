@@ -1,4 +1,6 @@
+use super::instruction::*;
 use super::memory::*;
+use super::opcode_tree::*;
 use super::utils::*;
 use super::word::*;
 use std::fs::File;
@@ -21,6 +23,10 @@ pub trait AVR {
     fn cycle_increment(&mut self, v: u64);
 
     fn execute(&mut self);
+
+    fn decode_instr(&mut self, word: Word) -> (Instr, InstrFunc) {
+        OPCODE_TREE.with(|tree| tree.find(word.0))
+    }
 
     fn run(&mut self, max_cycle: u64) {
         while self.cycle() < max_cycle {
@@ -45,15 +51,21 @@ pub trait AVR {
     }
 
     fn set_bit(&mut self, addr: RegisterBitAddr, v: bool) {
-        // WIP
+        let old = self.sram().get(addr.0);
+        if v {
+            self.sram_mut().set(addr.0, old | (1 << addr.1));
+        } else {
+            self.sram_mut().set(addr.0, old & !(1 << addr.1));
+        }
     }
 
     fn get_word(&self, addr: RegisterWordAddr) -> u16 {
         concat(self.get_register(addr.0), self.get_register(addr.1))
     }
 
-    fn set_word(&self, addr: RegisterWordAddr, v: u16) {
-        // WIP
+    fn set_word(&mut self, addr: RegisterWordAddr, v: u16) {
+        self.set_register(addr.0, high_byte(v));
+        self.set_register(addr.1, low_byte(v));
     }
 
     // alias
@@ -83,23 +95,23 @@ pub trait AVR {
         self.set_register(self.sp() as usize, v);
         let new_sp = self.sp() - 1;
         let r = self.r();
-        self.sram_mut().set(r.sph, high_bit(new_sp));
-        self.sram_mut().set(r.spl, low_bit(new_sp));
+        self.sram_mut().set(r.sph, high_byte(new_sp));
+        self.sram_mut().set(r.spl, low_byte(new_sp));
     }
 
     fn pop_stack(&mut self) -> u8 {
         let v = self.get_register((self.sp() + 1u16) as usize);
         let new_sp = self.sp() + 1;
         let r = self.r();
-        self.sram_mut().set(r.sph, high_bit(new_sp));
-        self.sram_mut().set(r.spl, low_bit(new_sp));
+        self.sram_mut().set(r.sph, high_byte(new_sp));
+        self.sram_mut().set(r.spl, low_byte(new_sp));
         v
     }
 
     fn push_pc_stack(&mut self, v: u32) {
         let w = (v & 0xffff) as u16;
-        self.push_stack(high_bit(w));
-        self.push_stack(low_bit(w));
+        self.push_stack(high_byte(w));
+        self.push_stack(low_byte(w));
     }
 
     fn pop_pc_stack(&mut self) -> u16 {
@@ -145,10 +157,10 @@ pub trait AVR {
         let z_addr = self.get_word(self.w().z);
         if z_addr % 2 == 0 {
             let addr = z_addr / 2;
-            low_bit(self.fetch(addr as u32))
+            low_byte(self.fetch(addr as u32))
         } else {
             let addr = (z_addr - 1) / 2;
-            high_bit(self.fetch(addr as u32))
+            high_byte(self.fetch(addr as u32))
         }
     }
 

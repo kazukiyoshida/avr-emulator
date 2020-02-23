@@ -1,5 +1,4 @@
 use super::avr::*;
-use super::instruction::*;
 use super::memory::*;
 use super::utils::*;
 
@@ -56,11 +55,8 @@ pub struct ATmega328P {
 
 impl AVR for ATmega328P {
     fn execute(&mut self) {
-        let w = self.word();
-        match decode_instr(w) {
-            Some(i) => exec(self, i),
-            None => (),
-        }
+        let (_, instr_func) = self.decode_instr(self.word());
+        instr_func(self);
     }
 
     fn flash_memory(&self) -> &dyn Memory<u16> {
@@ -170,8 +166,8 @@ impl SRAM {
     }
 
     fn set_word(&mut self, a: usize, v: u16) {
-        self.set(a, low_bit(v));
-        self.set(a + 1, high_bit(v));
+        self.set(a, low_byte(v));
+        self.set(a + 1, high_byte(v));
     }
 }
 
