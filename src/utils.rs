@@ -46,6 +46,14 @@ pub fn nth_bit_from_left_u16(a: u16, n: u8) -> bool {
     ((a & 1 << index) >> index) == 1
 }
 
+#[test]
+fn test_nth_bit_from_left_u16() {
+    assert_eq!(true, nth_bit_from_left_u16(0b1111_1111_0000_0000, 0));
+    assert_eq!(true, nth_bit_from_left_u16(0b1111_1111_0000_0000, 7));
+    assert_eq!(false, nth_bit_from_left_u16(0b1111_1111_0000_0000, 8));
+    assert_eq!(false, nth_bit_from_left_u16(0b1111_1111_0000_0000, 15));
+}
+
 pub fn high_byte(w: u16) -> u8 {
     (w >> 8) as u8
 }

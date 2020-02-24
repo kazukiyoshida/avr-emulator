@@ -1,5 +1,6 @@
 use super::instruction::*;
 use super::utils::*;
+use std::fmt;
 
 type Tree = Option<Box<Node>>;
 type Opcode = (u16, u16);
@@ -26,10 +27,10 @@ impl Node {
             return;
         }
 
-        let is_undef = nth_bit_from_left_u16(opcode.1, depth);
+        let is_eval = nth_bit_from_left_u16(opcode.1, depth);
         let is_on = nth_bit_from_left_u16(opcode.0, depth);
 
-        match (is_undef, is_on) {
+        match (is_eval, is_on) {
             (true, true) => match &mut self.on {
                 Some(n) => n.insert(depth + 1, opcode, instr, f),
                 None => {
@@ -69,23 +70,41 @@ impl Node {
             return Some((self.instr.unwrap(), self.f.unwrap()));
         }
 
-        if nth_bit_from_left_u16(w, depth) {
-            match &self.on {
-                Some(n) => n.find_recursive(w, depth + 1),
-                None => match &self.undef {
-                    Some(n) => n.find_recursive(w, depth + 1),
-                    None => panic!("there is no on & undef"),
-                },
-            }
+        return if nth_bit_from_left_u16(w, depth) {
+            self.on
+                .as_ref()
+                .and_then(|n| n.find_recursive(w, depth + 1))
+                .or(self
+                    .undef
+                    .as_ref()
+                    .and_then(|n| n.find_recursive(w, depth + 1)))
         } else {
-            match &self.off {
-                Some(n) => n.find_recursive(w, depth + 1),
-                None => match &self.undef {
-                    Some(n) => n.find_recursive(w, depth + 1),
-                    None => panic!("there is no off & undef"),
-                },
-            }
-        }
+            self.off
+                .as_ref()
+                .and_then(|n| n.find_recursive(w, depth + 1))
+                .or(self
+                    .undef
+                    .as_ref()
+                    .and_then(|n| n.find_recursive(w, depth + 1)))
+        };
+    }
+}
+
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let on = match &self.on {
+            Some(n) => format!(", \"on\": {}", n),
+            None => "".to_string(),
+        };
+        let off = match &self.off {
+            Some(n) => format!(", \"off\": {}", n),
+            None => "".to_string(),
+        };
+        let undef = match &self.undef {
+            Some(n) => format!(", \"undef\": {}", n),
+            None => "".to_string(),
+        };
+        write!(f, "{{\"depth\" :{}{}{}{}}}", self.depth, on, off, undef)
     }
 }
 
@@ -165,6 +184,15 @@ fn test_node() {
     &OPCODE_TREE.with(|f| {
         let _f1 = f.find(0b0000_1100_0000_0000);
         let _f2 = f.find(0b0001_1100_0000_0000);
-        // let _f3 = f.find(0b1111_1100_0000_0000); // panic
+        let _jmp = f.find(0b1001_0100_0000_1100);
+        let _sei = f.find(0b1001_0100_0111_1000);
+    });
+}
+
+#[test]
+#[should_panic]
+fn test_node_panic() {
+    &OPCODE_TREE.with(|f| {
+        let _xxx = f.find(0b1111_1100_0000_0000);
     });
 }
