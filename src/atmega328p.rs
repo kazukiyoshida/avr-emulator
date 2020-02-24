@@ -1,5 +1,6 @@
 use super::avr::*;
 use super::memory::*;
+use std::cell::{Cell, RefCell};
 
 pub const FLASH_MEMORY_SIZE: usize = 0x8000;
 pub const SRAM_SIZE: usize = 0x900;
@@ -52,49 +53,42 @@ pub const REGISTER_WORD_MAP: RegisterWordMap = RegisterWordMap {
 };
 
 pub struct ATmega328P {
-    pub flash_memory: FlashMemory,
-    pub sram: SRAM,
-    pub eeprom: EEPROM,
-    pub pc: u32,
-    pub cycle: u64,
+    flash_memory: RefCell<FlashMemory>,
+    sram: RefCell<SRAM>,
+    eeprom: RefCell<EEPROM>,
+    pc: Cell<u32>,
+    cycle: Cell<u64>,
 }
 
 impl AVR for ATmega328P {
-    fn execute(&mut self) {
+    fn execute(&self) {
         let (_, instr_func) = self.decode_instr(self.word());
         instr_func(self);
     }
 
-    fn flash_memory(&self) -> &dyn Memory<u16> {
+    fn flash_memory(&self) -> &RefCell<dyn Memory<u16>> {
         &self.flash_memory
     }
 
-    fn flash_memory_mut(&mut self) -> &mut dyn Memory<u16> {
-        &mut self.flash_memory
-    }
-
-    fn sram(&self) -> &dyn Memory<u8> {
+    fn sram(&self) -> &RefCell<dyn Memory<u8>> {
         &self.sram
     }
 
-    fn sram_mut(&mut self) -> &mut dyn Memory<u8> {
-        &mut self.sram
-    }
-
     fn pc(&self) -> u32 {
-        self.pc
+        self.pc.get()
     }
 
-    fn set_pc(&mut self, v: u32) {
-        self.pc = v;
+    fn set_pc(&self, v: u32) {
+        self.pc.set(v);
     }
 
     fn cycle(&self) -> u64 {
-        self.cycle
+        self.cycle.get()
     }
 
-    fn cycle_increment(&mut self, v: u64) {
-        self.cycle += v;
+    fn cycle_increment(&self, dc: u64) {
+        let c = self.cycle.get();
+        self.cycle.set(c + dc);
     }
 
     fn register_map(&self) -> &'static RegisterMap {
@@ -113,15 +107,15 @@ impl AVR for ATmega328P {
 impl ATmega328P {
     pub fn new() -> ATmega328P {
         ATmega328P {
-            flash_memory: FlashMemory::new(),
-            sram: SRAM::new(),
-            eeprom: EEPROM::new(),
-            pc: 0,
-            cycle: 0,
+            flash_memory: RefCell::new(FlashMemory::new()),
+            sram: RefCell::new(SRAM::new()),
+            eeprom: RefCell::new(EEPROM::new()),
+            pc: Cell::new(0),
+            cycle: Cell::new(0),
         }
     }
 
-    pub fn initialize_sram(&mut self) {
+    pub fn initialize_sram(&self) {
         self.set_word(REGISTER_WORD_MAP.sp, REGISTER_MAP.ramend as u16);
         self.set_register(0x12, 0x01);
         self.set_register(0x1a, 0x09);
