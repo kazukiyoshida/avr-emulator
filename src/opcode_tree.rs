@@ -1,5 +1,6 @@
 use super::instruction::*;
 use super::utils::*;
+use std::fmt;
 
 type Tree = Option<Box<Node>>;
 type Opcode = (u16, u16);
@@ -86,6 +87,21 @@ impl Node {
                 },
             }
         }
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let on = match &self.on {
+            Some(n) => format!(", \"on\": {}", n),
+            None => "".to_string(),
+        };
+        let off = match &self.off {
+            Some(n) => format!(", \"off\": {}", n),
+            None => "".to_string(),
+        };
+        let undef = match &self.undef {
+            Some(n) => format!(", \"undef\": {}", n),
+            None => "".to_string(),
+        };
+        write!(f, "{{\"depth\" :{}{}{}{}}}", self.depth, on, off, undef)
     }
 }
 
