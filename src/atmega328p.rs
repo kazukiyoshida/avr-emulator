@@ -126,12 +126,10 @@ pub struct SRAM([u8; SRAM_SIZE]);
 pub struct EEPROM([u8; EEPROM_SIZE]);
 
 impl Memory<u16> for FlashMemory {
-    // メモリの内容をそのまま返す
     fn get(&self, a: usize) -> u16 {
-        self.0[a]
+        self.0[a].to_be()
     }
 
-    // WIP
     fn set(&mut self, a: usize, v: u16) {
         self.0[a] = v;
     }
@@ -140,13 +138,6 @@ impl Memory<u16> for FlashMemory {
 impl FlashMemory {
     fn new() -> FlashMemory {
         FlashMemory([0; FLASH_MEMORY_SIZE])
-    }
-
-    // WIP: u16::bit_ld 関数などが使える
-    // メモリの内容をリトルエンディアンとして並び替えて返す
-    pub fn get_by_little_endian(&self, a: usize) -> u16 {
-        let n = self.0[a];
-        ((n & 0xff) << 8) | (n >> 8)
     }
 }
 

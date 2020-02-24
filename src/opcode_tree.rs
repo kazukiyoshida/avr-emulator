@@ -27,10 +27,10 @@ impl Node {
             return;
         }
 
-        let is_undef = nth_bit_from_left_u16(opcode.1, depth);
+        let is_eval = nth_bit_from_left_u16(opcode.1, depth);
         let is_on = nth_bit_from_left_u16(opcode.0, depth);
 
-        match (is_undef, is_on) {
+        match (is_eval, is_on) {
             (true, true) => match &mut self.on {
                 Some(n) => n.insert(depth + 1, opcode, instr, f),
                 None => {
