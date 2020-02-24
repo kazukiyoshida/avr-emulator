@@ -113,18 +113,28 @@ impl AVR for ATmega328P {
 
 impl ATmega328P {
     pub fn new() -> ATmega328P {
-        let mut sram = SRAM::new();
-
-        // setup sram initial state
-        sram.set_word(REGISTER_MAP.spl, REGISTER_MAP.ramend as u16);
-
         ATmega328P {
             flash_memory: FlashMemory::new(),
-            sram: sram,
+            sram: SRAM::new(),
             eeprom: EEPROM::new(),
             pc: 0,
             cycle: 0,
         }
+    }
+
+    pub fn initialize_sram(&mut self) {
+        self.set_word(REGISTER_WORD_MAP.sp, REGISTER_MAP.ramend as u16);
+        self.set_register(0x12, 0x01);
+        self.set_register(0x1a, 0x09);
+        self.set_register(0x1b, 0x01);
+        self.set_register(0x1c, 0xff);
+        self.set_register(0x1d, 0x08);
+        self.set_register(REGISTER_MAP.mcusr, 0x01);
+        self.set_register(REGISTER_MAP.twsr, 0xf8);
+        self.set_register(REGISTER_MAP.twar, 0xfe);
+        self.set_register(REGISTER_MAP.twdr, 0xff);
+        self.set_register(REGISTER_MAP.ucsr0a, 0x20);
+        self.set_register(REGISTER_MAP.ucsr0c, 0x06);
     }
 }
 
