@@ -1,6 +1,5 @@
 use super::avr::*;
 use super::memory::*;
-use super::utils::*;
 
 pub const FLASH_MEMORY_SIZE: usize = 0x8000;
 pub const SRAM_SIZE: usize = 0x900;
@@ -171,11 +170,6 @@ impl Memory<u8> for SRAM {
 impl SRAM {
     fn new() -> SRAM {
         SRAM([0; SRAM_SIZE])
-    }
-
-    fn set_word(&mut self, a: usize, v: u16) {
-        self.set(a, low_byte(v));
-        self.set(a + 1, high_byte(v));
     }
 }
 
