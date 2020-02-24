@@ -215,7 +215,8 @@ define_stationary_struct!(
     RegisterMap,
     RegisterAddr,
     sreg, sph, spl, ocr0b, ocr0a, tcnt0, tccr0b, tccr0a, portd, ddrd, pind,
-    portc, ddrc, pinc, portb, ddrb, pinb, ramend
+    portc, ddrc, pinc, portb, ddrb, pinb, ramend, mcusr, twsr, twar, twdr,
+    ucsr0a, ucsr0b, ucsr0c
 );
 
 type RegisterWordAddr = (usize, usize);

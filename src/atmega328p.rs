@@ -25,6 +25,13 @@ pub const REGISTER_MAP: RegisterMap = RegisterMap {
     ddrb: 0x24,
     pinb: 0x23,
     ramend: 0x08ff,
+    mcusr: 0x54,
+    twsr: 0xb9,
+    twar: 0xba,
+    twdr: 0xbb,
+    ucsr0a: 0xc0,
+    ucsr0b: 0xc1,
+    ucsr0c: 0xc2,
 };
 
 pub const REGISTER_BIT_MAP: RegisterBitMap = RegisterBitMap {
