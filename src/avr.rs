@@ -138,19 +138,18 @@ pub trait AVR {
         self.set_bit(self.b().v, has_2complement_overflow(d, r, res));
         self.set_bit(self.b().n, msb(res));
         self.set_bit(self.b().z, res == 0);
-        self.signed_test();
+        self.set_bit(self.b().s, self.signed_test());
     }
 
     fn set_status_by_bit_instruction(&mut self, res: u8) {
         self.set_bit(self.b().v, false);
         self.set_bit(self.b().n, msb(res));
         self.set_bit(self.b().z, res == 0);
-        self.signed_test();
+        self.set_bit(self.b().s, self.signed_test());
     }
 
-    fn signed_test(&mut self) {
-        let s = self.get_bit(self.b().v) ^ self.get_bit(self.b().n);
-        self.set_bit(self.b().s, s);
+    fn signed_test(&self) -> bool {
+        self.get_bit(self.b().v) ^ self.get_bit(self.b().n)
     }
 
     fn z_program_memory(&self) -> u8 {

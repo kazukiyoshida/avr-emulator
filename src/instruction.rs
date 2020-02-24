@@ -53,8 +53,7 @@ pub fn adiw(avr: &mut dyn AVR) {
     avr.set_bit(avr.b().n, msb(high_byte(res)));
     avr.set_bit(avr.b().z, res == 0);
     avr.set_bit(avr.b().c, !msb(high_byte(res)) & msb(dh));
-
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
 
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -77,7 +76,7 @@ pub fn sbci(avr: &mut dyn AVR) {
         None => avr.set_bit(avr.b().c, true),
         _ => avr.set_bit(avr.b().c, false),
     };
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
 
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -92,7 +91,7 @@ pub fn dec(avr: &mut dyn AVR) {
     avr.set_bit(avr.b().v, d == 0x80u8);
     avr.set_bit(avr.b().n, msb(result));
     avr.set_bit(avr.b().z, result == 0);
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
 
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -296,7 +295,7 @@ pub fn rol(avr: &mut dyn AVR) {
     avr.set_bit(avr.b().z, d_new == 0);
     avr.set_bit(avr.b().c, msb(d_old));
     avr.set_bit(avr.b().v, avr.get_bit(avr.b().n) ^ avr.get_bit(avr.b().c));
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
 
     avr.pc_increment(1);
     avr.cycle_increment(3);
@@ -313,7 +312,7 @@ pub fn lsl(avr: &mut dyn AVR) {
     avr.set_bit(avr.b().z, d_new == 0);
     avr.set_bit(avr.b().c, msb(d_old));
     avr.set_bit(avr.b().v, avr.get_bit(avr.b().n) ^ avr.get_bit(avr.b().c));
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
 
     avr.pc_increment(1);
     avr.cycle_increment(3);
@@ -496,7 +495,7 @@ pub fn cpc(avr: &mut dyn AVR) {
         avr.set_bit(avr.b().z, false);
     }
     avr.set_bit(avr.b().c, d < r + c);
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
@@ -638,7 +637,7 @@ pub fn sbiw(avr: &mut dyn AVR) {
     avr.set_bit(avr.b().c, msb(high_byte(result)) & !msb(dh));
     avr.set_bit(avr.b().n, msb(high_byte(result)));
     avr.set_bit(avr.b().z, msb(high_byte(result)));
-    avr.signed_test();
+    avr.set_bit(avr.b().s, avr.signed_test());
     avr.pc_increment(1);
     avr.cycle_increment(2);
 }
