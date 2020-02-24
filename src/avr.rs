@@ -47,7 +47,7 @@ pub trait AVR {
     }
 
     fn get_bit(&self, addr: RegisterBitAddr) -> bool {
-        (self.sram().get(addr.0) & (1 << addr.1)) == 1
+        (self.sram().get(addr.0) & (1 << addr.1)) >> addr.1 == 1
     }
 
     fn set_bit(&mut self, addr: RegisterBitAddr, v: bool) {
@@ -138,19 +138,18 @@ pub trait AVR {
         self.set_bit(self.b().v, has_2complement_overflow(d, r, res));
         self.set_bit(self.b().n, msb(res));
         self.set_bit(self.b().z, res == 0);
-        self.signed_test();
+        self.set_bit(self.b().s, self.signed_test());
     }
 
     fn set_status_by_bit_instruction(&mut self, res: u8) {
         self.set_bit(self.b().v, false);
         self.set_bit(self.b().n, msb(res));
         self.set_bit(self.b().z, res == 0);
-        self.signed_test();
+        self.set_bit(self.b().s, self.signed_test());
     }
 
-    fn signed_test(&mut self) {
-        let s = self.get_bit(self.b().v) ^ self.get_bit(self.b().n);
-        self.set_bit(self.b().s, s);
+    fn signed_test(&self) -> bool {
+        self.get_bit(self.b().v) ^ self.get_bit(self.b().n)
     }
 
     fn z_program_memory(&self) -> u8 {
@@ -216,7 +215,8 @@ define_stationary_struct!(
     RegisterMap,
     RegisterAddr,
     sreg, sph, spl, ocr0b, ocr0a, tcnt0, tccr0b, tccr0a, portd, ddrd, pind,
-    portc, ddrc, pinc, portb, ddrb, pinb, ramend
+    portc, ddrc, pinc, portb, ddrb, pinb, ramend, mcusr, twsr, twar, twdr,
+    ucsr0a, ucsr0b, ucsr0c
 );
 
 type RegisterWordAddr = (usize, usize);

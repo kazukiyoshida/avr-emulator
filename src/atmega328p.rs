@@ -1,6 +1,5 @@
 use super::avr::*;
 use super::memory::*;
-use super::utils::*;
 
 pub const FLASH_MEMORY_SIZE: usize = 0x8000;
 pub const SRAM_SIZE: usize = 0x900;
@@ -25,6 +24,13 @@ pub const REGISTER_MAP: RegisterMap = RegisterMap {
     ddrb: 0x24,
     pinb: 0x23,
     ramend: 0x08ff,
+    mcusr: 0x54,
+    twsr: 0xb9,
+    twar: 0xba,
+    twdr: 0xbb,
+    ucsr0a: 0xc0,
+    ucsr0b: 0xc1,
+    ucsr0c: 0xc2,
 };
 
 pub const REGISTER_BIT_MAP: RegisterBitMap = RegisterBitMap {
@@ -106,18 +112,28 @@ impl AVR for ATmega328P {
 
 impl ATmega328P {
     pub fn new() -> ATmega328P {
-        let mut sram = SRAM::new();
-
-        // setup sram initial state
-        sram.set_word(REGISTER_MAP.spl, REGISTER_MAP.ramend as u16);
-
         ATmega328P {
             flash_memory: FlashMemory::new(),
-            sram: sram,
+            sram: SRAM::new(),
             eeprom: EEPROM::new(),
             pc: 0,
             cycle: 0,
         }
+    }
+
+    pub fn initialize_sram(&mut self) {
+        self.set_word(REGISTER_WORD_MAP.sp, REGISTER_MAP.ramend as u16);
+        self.set_register(0x12, 0x01);
+        self.set_register(0x1a, 0x09);
+        self.set_register(0x1b, 0x01);
+        self.set_register(0x1c, 0xff);
+        self.set_register(0x1d, 0x08);
+        self.set_register(REGISTER_MAP.mcusr, 0x01);
+        self.set_register(REGISTER_MAP.twsr, 0xf8);
+        self.set_register(REGISTER_MAP.twar, 0xfe);
+        self.set_register(REGISTER_MAP.twdr, 0xff);
+        self.set_register(REGISTER_MAP.ucsr0a, 0x20);
+        self.set_register(REGISTER_MAP.ucsr0c, 0x06);
     }
 }
 
@@ -154,11 +170,6 @@ impl Memory<u8> for SRAM {
 impl SRAM {
     fn new() -> SRAM {
         SRAM([0; SRAM_SIZE])
-    }
-
-    fn set_word(&mut self, a: usize, v: u16) {
-        self.set(a, low_byte(v));
-        self.set(a + 1, high_byte(v));
     }
 }
 
