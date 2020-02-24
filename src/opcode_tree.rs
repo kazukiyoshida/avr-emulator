@@ -70,23 +70,26 @@ impl Node {
             return Some((self.instr.unwrap(), self.f.unwrap()));
         }
 
-        if nth_bit_from_left_u16(w, depth) {
-            match &self.on {
-                Some(n) => n.find_recursive(w, depth + 1),
-                None => match &self.undef {
-                    Some(n) => n.find_recursive(w, depth + 1),
-                    None => panic!("there is no on & undef"),
-                },
-            }
+        return if nth_bit_from_left_u16(w, depth) {
+            self.on
+                .as_ref()
+                .and_then(|n| n.find_recursive(w, depth + 1))
+                .or(self
+                    .undef
+                    .as_ref()
+                    .and_then(|n| n.find_recursive(w, depth + 1)))
         } else {
-            match &self.off {
-                Some(n) => n.find_recursive(w, depth + 1),
-                None => match &self.undef {
-                    Some(n) => n.find_recursive(w, depth + 1),
-                    None => panic!("there is no off & undef"),
-                },
-            }
-        }
+            self.off
+                .as_ref()
+                .and_then(|n| n.find_recursive(w, depth + 1))
+                .or(self
+                    .undef
+                    .as_ref()
+                    .and_then(|n| n.find_recursive(w, depth + 1)))
+        };
+    }
+}
+
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let on = match &self.on {
@@ -181,6 +184,15 @@ fn test_node() {
     &OPCODE_TREE.with(|f| {
         let _f1 = f.find(0b0000_1100_0000_0000);
         let _f2 = f.find(0b0001_1100_0000_0000);
-        // let _f3 = f.find(0b1111_1100_0000_0000); // panic
+        let _jmp = f.find(0b1001_0100_0000_1100);
+        let _sei = f.find(0b1001_0100_0111_1000);
+    });
+}
+
+#[test]
+#[should_panic]
+fn test_node_panic() {
+    &OPCODE_TREE.with(|f| {
+        let _xxx = f.find(0b1111_1100_0000_0000);
     });
 }
