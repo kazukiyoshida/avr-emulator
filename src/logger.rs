@@ -100,8 +100,8 @@ impl Logger {
         let log = Log::new(
             self.processor_status(avr),
             self.registers_status(avr),
-            self.memory_status(avr.sram(), 2, 0, 28),
-            self.memory_status(avr.sram(), 2, 284, 288), // 0x8ff / 8 = 0d288
+            self.memory_status(avr.sram(), 2, 0, 25),
+            self.memory_status(avr.sram(), 2, 286, 288), // 0x8ff / 8 = 0d288
         );
         self.logs.push(log);
         match self.current_index {

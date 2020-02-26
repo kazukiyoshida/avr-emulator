@@ -49,7 +49,7 @@ pub trait AVR {
     }
 
     fn get_bit(&self, addr: RegisterBitAddr) -> bool {
-        (self.sram().get(addr.0) & (1 << addr.1)) >> addr.1 == 1
+        (self.sram().borrow().get(addr.0) & (1 << addr.1)) >> addr.1 == 1
     }
 
     fn set_bit(&self, addr: RegisterBitAddr, v: bool) {
