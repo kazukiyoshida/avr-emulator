@@ -1,4 +1,5 @@
 use super::avr::*;
+use super::io_port::*;
 use super::memory::*;
 use super::timer::*;
 use std::cell::{Cell, RefCell};
@@ -36,15 +37,22 @@ pub const REGISTER_MAP: RegisterMap = RegisterMap {
     ocr2b: 0xb4,
     timsk2: 0x70,
     tifr2: 0x37,
+
+    // PORT D
     portd: 0x2b,
     ddrd: 0x2a,
     pind: 0x29,
+
+    // PORT C
     portc: 0x28,
     ddrc: 0x27,
     pinc: 0x26,
+
+    // PORT B
     portb: 0x25,
     ddrb: 0x24,
     pinb: 0x23,
+
     ramend: 0x08ff,
     mcusr: 0x54,
     twsr: 0xb9,
@@ -171,6 +179,33 @@ impl ATmega328P {
             REGISTER_MAP.tccr2a,
             REGISTER_MAP.ocr2a,
             REGISTER_MAP.ocr2b,
+        )
+    }
+
+    pub fn new_portb(&self) -> IOPort {
+        IOPort::new(
+            self,
+            REGISTER_MAP.portb,
+            REGISTER_MAP.ddrb,
+            REGISTER_MAP.pinb,
+        )
+    }
+
+    pub fn new_portc(&self) -> IOPort {
+        IOPort::new(
+            self,
+            REGISTER_MAP.portc,
+            REGISTER_MAP.ddrc,
+            REGISTER_MAP.pinc,
+        )
+    }
+
+    pub fn new_portd(&self) -> IOPort {
+        IOPort::new(
+            self,
+            REGISTER_MAP.portd,
+            REGISTER_MAP.ddrd,
+            REGISTER_MAP.pind,
         )
     }
 
