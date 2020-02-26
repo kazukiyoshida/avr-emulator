@@ -1,5 +1,6 @@
 use super::avr::*;
 use super::memory::*;
+use super::timer::*;
 use std::cell::{Cell, RefCell};
 
 pub const FLASH_MEMORY_SIZE: usize = 0x8000;
@@ -139,6 +140,38 @@ impl ATmega328P {
             pc: Cell::new(0),
             cycle: Cell::new(0),
         }
+    }
+
+    pub fn new_timer0(&self) -> Timer8bit {
+        Timer8bit::new(
+            self,
+            REGISTER_MAP.tcnt0,
+            REGISTER_MAP.tccr0a,
+            REGISTER_MAP.ocr0a,
+            REGISTER_MAP.ocr0b,
+        )
+    }
+
+    pub fn new_timer1(&self) -> Timer16bit {
+        Timer16bit::new(
+            self,
+            REGISTER_WORD_MAP.tcnt1,
+            REGISTER_MAP.tccr1a,
+            REGISTER_MAP.tccr1b,
+            REGISTER_MAP.tccr1c,
+            REGISTER_WORD_MAP.ocr1a,
+            REGISTER_WORD_MAP.ocr1b,
+        )
+    }
+
+    pub fn new_timer2(&self) -> Timer8bit {
+        Timer8bit::new(
+            self,
+            REGISTER_MAP.tcnt2,
+            REGISTER_MAP.tccr2a,
+            REGISTER_MAP.ocr2a,
+            REGISTER_MAP.ocr2b,
+        )
     }
 
     pub fn initialize_sram(&self) {

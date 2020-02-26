@@ -4,5 +4,6 @@ pub mod instruction;
 pub mod logger;
 pub mod memory;
 pub mod opcode_tree;
+pub mod timer;
 pub mod utils;
 pub mod word;
