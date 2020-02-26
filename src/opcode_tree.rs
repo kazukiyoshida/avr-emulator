@@ -21,7 +21,7 @@ impl Node {
     }
 
     fn insert(&mut self, depth: u8, opcode: Opcode, instr: Instr, f: InstrFunc) {
-        if depth >= 15 {
+        if depth >= 16 {
             self.instr = Some(instr);
             self.f = Some(f);
             return;
@@ -62,12 +62,16 @@ impl Node {
     }
 
     pub fn find(&self, word: u16) -> (Instr, InstrFunc) {
-        self.find_recursive(word, 0).unwrap()
+        self.find_recursive(word, 0)
+            .unwrap_or_else(|| panic!("there is no instruction, w: {:016b}", word))
     }
 
     fn find_recursive(&self, w: u16, depth: u8) -> Option<(Instr, InstrFunc)> {
-        if depth >= 15 {
-            return Some((self.instr.unwrap(), self.f.unwrap()));
+        if depth >= 16 {
+            return Some((
+                self.instr.expect("instr not found"),
+                self.f.expect("instr function not found"),
+            ));
         }
 
         return if nth_bit_from_left_u16(w, depth) {
@@ -92,6 +96,10 @@ impl Node {
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let instr = match &self.instr {
+            Some(instr) => format!(", \"instr\": \"{:?}\"", instr),
+            None => "".to_string(),
+        };
         let on = match &self.on {
             Some(n) => format!(", \"on\": {}", n),
             None => "".to_string(),
@@ -104,7 +112,11 @@ impl fmt::Display for Node {
             Some(n) => format!(", \"undef\": {}", n),
             None => "".to_string(),
         };
-        write!(f, "{{\"depth\" :{}{}{}{}}}", self.depth, on, off, undef)
+        write!(
+            f,
+            "{{\"depth\" :{}{}{}{}{}}}",
+            self.depth, instr, on, off, undef
+        )
     }
 }
 
@@ -138,8 +150,8 @@ thread_local! {
         t.add((0b0000_0000_0000_0000, 0b1111_1111_1111_1111), Instr::NOP, &nop);
         t.add((0b1001_0100_0000_1110, 0b1111_1110_0000_1110), Instr::CALL, &call);
         t.add((0b1101_0000_0000_0000, 0b1111_0000_0000_0000), Instr::RCALL, &rcall);
-        t.add((0b0001_1100_0000_0000, 0b1111_1100_0000_0000), Instr::ROL, &rol);
-        t.add((0b0000_1100_0000_0000, 0b1111_1100_0000_0000), Instr::LSL, &lsl);
+        // t.add((0b0001_1100_0000_0000, 0b1111_1100_0000_0000), Instr::ROL, &rol);
+        // t.add((0b0000_1100_0000_0000, 0b1111_1100_0000_0000), Instr::LSL, &lsl);
         t.add((0b1001_0100_0000_1100, 0b1111_1110_0000_1110), Instr::JMP, &jmp);
         t.add((0b1100_0000_0000_0000, 0b1111_0000_0000_0000), Instr::RJMP, &rjmp);
         t.add((0b0110_0000_0000_0000, 0b1111_0000_0000_0000), Instr::ORI, &ori);
@@ -182,10 +194,11 @@ thread_local! {
 #[test]
 fn test_node() {
     &OPCODE_TREE.with(|f| {
-        let _f1 = f.find(0b0000_1100_0000_0000);
-        let _f2 = f.find(0b0001_1100_0000_0000);
-        let _jmp = f.find(0b1001_0100_0000_1100);
-        let _sei = f.find(0b1001_0100_0111_1000);
+        assert_eq!(Instr::ADD, f.find(0b0000_1100_0000_0000).0);
+        assert_eq!(Instr::ADC, f.find(0b0001_1100_0000_0000).0);
+        assert_eq!(Instr::JMP, f.find(0b1001_0100_0000_1100).0);
+        assert_eq!(Instr::SEI, f.find(0b1001_0100_0111_1000).0);
+        assert_eq!(Instr::STS, f.find(0b1001_0010_0000_0000).0);
     });
 }
 
