@@ -2,6 +2,7 @@ use super::avr::*;
 use super::memory::*;
 use colored::*;
 use difference::{Changeset, Difference};
+use std::cell::RefCell;
 use std::fmt;
 use std::fmt::LowerHex;
 
@@ -99,8 +100,8 @@ impl Logger {
         let log = Log::new(
             self.processor_status(avr),
             self.registers_status(avr),
-            self.memory_status(avr.sram(), 2, 0, 28),
-            self.memory_status(avr.sram(), 2, 284, 288), // 0x8ff / 8 = 0d288
+            self.memory_status(avr.sram(), 2, 0, 25),
+            self.memory_status(avr.sram(), 2, 286, 288), // 0x8ff / 8 = 0d288
         );
         self.logs.push(log);
         match self.current_index {
@@ -150,7 +151,13 @@ Cycle Counter:   {}"#,
         sum
     }
 
-    pub fn memory_status<T>(&self, mem: &dyn Memory<T>, unit: u8, from: usize, to: usize) -> String
+    pub fn memory_status<T>(
+        &self,
+        mem: &RefCell<dyn Memory<T>>,
+        unit: u8,
+        from: usize,
+        to: usize,
+    ) -> String
     where
         T: LowerHex,
     {
@@ -162,27 +169,27 @@ Cycle Counter:   {}"#,
                 s = format!(
                     "{:#06x} | {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
                     i,
-                    mem.get(i + 0),
-                    mem.get(i + 1),
-                    mem.get(i + 2),
-                    mem.get(i + 3),
-                    mem.get(i + 4),
-                    mem.get(i + 5),
-                    mem.get(i + 6),
-                    mem.get(i + 7),
+                    mem.borrow().get(i + 0),
+                    mem.borrow().get(i + 1),
+                    mem.borrow().get(i + 2),
+                    mem.borrow().get(i + 3),
+                    mem.borrow().get(i + 4),
+                    mem.borrow().get(i + 5),
+                    mem.borrow().get(i + 6),
+                    mem.borrow().get(i + 7),
                 )
             } else if unit == 4 {
                 s = format!(
                     "{:#06x} | {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x}",
                     i * 2,
-                    mem.get(i + 0),
-                    mem.get(i + 1),
-                    mem.get(i + 2),
-                    mem.get(i + 3),
-                    mem.get(i + 4),
-                    mem.get(i + 5),
-                    mem.get(i + 6),
-                    mem.get(i + 7),
+                    mem.borrow().get(i + 0),
+                    mem.borrow().get(i + 1),
+                    mem.borrow().get(i + 2),
+                    mem.borrow().get(i + 3),
+                    mem.borrow().get(i + 4),
+                    mem.borrow().get(i + 5),
+                    mem.borrow().get(i + 6),
+                    mem.borrow().get(i + 7),
                 )
             } else {
                 s = String::from("")
