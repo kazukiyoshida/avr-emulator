@@ -10,11 +10,31 @@ pub const REGISTER_MAP: RegisterMap = RegisterMap {
     sreg: 0x5f,
     sph: 0x5e,
     spl: 0x5d,
-    ocr0b: 0x48,
-    ocr0a: 0x47,
+
+    // Timer 0 (8-bit)
     tcnt0: 0x46,
-    tccr0b: 0x45,
     tccr0a: 0x44,
+    tccr0b: 0x45,
+    ocr0a: 0x47,
+    ocr0b: 0x48,
+    timsk0: 0x6e,
+    tifr0: 0x35,
+
+    // Timer 1 (16-bit)
+    tccr1a: 0x80,
+    tccr1b: 0x81,
+    tccr1c: 0x82,
+    timsk1: 0x6f,
+    tifr1: 0x36,
+
+    // Timer 2 (8-bit)
+    tcnt2: 0xb2,
+    tccr2a: 0xb0,
+    tccr2b: 0xb1,
+    ocr2a: 0xb3,
+    ocr2b: 0xb4,
+    timsk2: 0x70,
+    tifr2: 0x37,
     portd: 0x2b,
     ddrd: 0x2a,
     pind: 0x29,
@@ -50,6 +70,12 @@ pub const REGISTER_WORD_MAP: RegisterWordMap = RegisterWordMap {
     x: (27, 26),
     y: (29, 28),
     z: (31, 30),
+
+    // Timer 1 (16-bit)
+    tcnt1: (0x85, 0x84),
+    ocr1a: (0x89, 0x88),
+    ocr1b: (0x8b, 0x8a),
+    icr1: (0x87, 0x86),
 };
 
 pub struct ATmega328P {

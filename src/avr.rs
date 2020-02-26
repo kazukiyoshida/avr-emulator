@@ -204,7 +204,7 @@ macro_rules! define_stationary_struct {
     };
 }
 
-type RegisterBitAddr = (usize, u8);
+pub type RegisterBitAddr = (usize, u8);
 #[rustfmt::skip]
 define_stationary_struct!(
     RegisterBitMap,
@@ -212,20 +212,23 @@ define_stationary_struct!(
     c, z, n, v, s, h, t, i
 );
 
-type RegisterAddr = usize;
+pub type RegisterAddr = usize;
 #[rustfmt::skip]
 define_stationary_struct!(
     RegisterMap,
     RegisterAddr,
-    sreg, sph, spl, ocr0b, ocr0a, tcnt0, tccr0b, tccr0a, portd, ddrd, pind,
+    sreg, sph, spl, portd, ddrd, pind, ucsr0a, ucsr0b, ucsr0c,
     portc, ddrc, pinc, portb, ddrb, pinb, ramend, mcusr, twsr, twar, twdr,
-    ucsr0a, ucsr0b, ucsr0c
+    tcnt0, tccr0a, tccr0b,         ocr0a, ocr0b, timsk0, tifr0, // Timer 0 (8-bit)
+           tccr1a, tccr1b, tccr1c,               timsk1, tifr1, // Timer 1 (16-bit)
+    tcnt2, tccr2a, tccr2b,         ocr2a, ocr2b, timsk2, tifr2  // Timer 0 (8-bit)
 );
 
-type RegisterWordAddr = (usize, usize);
+pub type RegisterWordAddr = (usize, usize);
 #[rustfmt::skip]
 define_stationary_struct!(
     RegisterWordMap,
     RegisterWordAddr,
-    sp, x, y, z
+    sp, x, y, z,
+    tcnt1, ocr1a, ocr1b, icr1 // timer 1 (16-bit)
 );
