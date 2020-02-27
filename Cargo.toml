@@ -9,3 +9,7 @@ itertools = "0.8"
 lazy_static = "1.4.0"
 difference = "2.0"
 colored = "1.9"
+
+[[example]]
+name = "step"
+path = "examples/step_by_step.rs"
