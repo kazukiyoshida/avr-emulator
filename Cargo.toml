@@ -13,3 +13,7 @@ colored = "1.9"
 [[example]]
 name = "step"
 path = "examples/step_by_step.rs"
+
+[[example]]
+name = "flow"
+path = "examples/flow.rs"
