@@ -1,9 +1,8 @@
-// extern crate avr_emulator;
 use avr_emulator::atmega328p::*;
 use avr_emulator::avr::*;
 use avr_emulator::logger::*;
-use std::env;
 use std::collections::VecDeque;
+use std::env;
 
 pub const SAMPLE_FILE_NAME: &str = "hex/avr_studio/led_flashing_fast/led_flashing.hex";
 
@@ -65,9 +64,9 @@ fn main() {
             println!("Timer 1 {}", timer1);
             println!("Timer 2 {}", timer2);
 
-            println!("Port B {}", portb);
-            println!("Port C {}", portc);
-            println!("Port D {}", portd);
+            println!("Port B   {}", portb);
+            println!("Port C   {}", portc);
+            println!("Port D   {}", portd);
 
             instr_func(&avr);
             timer0.input_clk();

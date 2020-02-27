@@ -155,6 +155,7 @@ impl ATmega328P {
             self,
             REGISTER_MAP.tcnt0,
             REGISTER_MAP.tccr0a,
+            REGISTER_MAP.tccr0b,
             REGISTER_MAP.ocr0a,
             REGISTER_MAP.ocr0b,
         )
@@ -167,6 +168,7 @@ impl ATmega328P {
             REGISTER_MAP.tccr1a,
             REGISTER_MAP.tccr1b,
             REGISTER_MAP.tccr1c,
+            REGISTER_WORD_MAP.icr1,
             REGISTER_WORD_MAP.ocr1a,
             REGISTER_WORD_MAP.ocr1b,
         )
@@ -177,6 +179,7 @@ impl ATmega328P {
             self,
             REGISTER_MAP.tcnt2,
             REGISTER_MAP.tccr2a,
+            REGISTER_MAP.tccr2b,
             REGISTER_MAP.ocr2a,
             REGISTER_MAP.ocr2b,
         )
