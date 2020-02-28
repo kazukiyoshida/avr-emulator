@@ -143,6 +143,14 @@ pub trait AVR {
         self.set_bit(self.b().s, self.signed_test());
     }
 
+    fn set_status_by_arithmetic_instruction2(&self, d: u8, k: u8, res: u8) {
+        self.set_bit(self.b().h, has_borrow_from_bit3_k(d, k, res));
+        self.set_bit(self.b().v, has_2complement_overflow(d, k, res));
+        self.set_bit(self.b().n, msb(res));
+        self.set_bit(self.b().z, res == 0);
+        self.set_bit(self.b().s, self.signed_test());
+    }
+
     fn set_status_by_bit_instruction(&self, res: u8) {
         self.set_bit(self.b().v, false);
         self.set_bit(self.b().n, msb(res));

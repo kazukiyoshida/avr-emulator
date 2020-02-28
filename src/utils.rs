@@ -24,7 +24,12 @@ pub fn test_msb_lsb() {
 
 pub fn has_borrow_from_bit3(a: u8, b: u8, r: u8) -> bool {
     let (a3, b3, r3) = (bit(a, 3), bit(b, 3), bit(r, 3));
-    !a3 & b3 | b3 & r3 | r3 & !a3
+    a3 & b3 | b3 & !r3 | !r3 & a3
+}
+
+pub fn has_borrow_from_bit3_k(a: u8, k: u8, r: u8) -> bool {
+    let (a3, k3, r3) = (bit(a, 3), bit(k, 3), bit(r, 3));
+    !a3 & k3 | k3 & r3 | r3 & !a3
 }
 
 pub fn has_borrow_from_msb(a: u8, b: u8, r: u8) -> bool {

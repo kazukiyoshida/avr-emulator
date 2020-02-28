@@ -66,7 +66,7 @@ pub fn sbci(avr: &dyn AVR) {
     let res = d.wrapping_sub(k).wrapping_sub(c);
     avr.set_register(d_addr, res);
 
-    avr.set_bit(avr.b().h, has_borrow_from_bit3(d, k, res));
+    avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, k, res));
     avr.set_bit(avr.b().v, has_2complement_overflow(d, k, res));
     avr.set_bit(avr.b().n, msb(res));
     if res != 0 {
@@ -113,7 +113,7 @@ pub fn sub(avr: &dyn AVR) {
     let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d.wrapping_sub(r);
     avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction(d, r, res);
+    avr.set_status_by_arithmetic_instruction2(d, r, res);
     avr.set_bit(avr.b().c, d < r);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -125,8 +125,16 @@ pub fn sbc(avr: &dyn AVR) {
     let c = avr.get_bit(avr.b().c) as u8;
     let res = d.wrapping_add(r).wrapping_add(c);
     avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_bit(avr.b().c, d < (r.wrapping_add(1)));
+
+    avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, r, res));
+    avr.set_bit(avr.b().v, has_2complement_overflow(d, r, res));
+    avr.set_bit(avr.b().n, msb(res));
+    if res != 0 {
+        avr.set_bit(avr.b().z, false);
+    }
+    avr.set_bit(avr.b().s, avr.signed_test());
+    avr.set_bit(avr.b().c, d < (r.wrapping_add(c)));
+
     avr.pc_increment(1);
     avr.cycle_increment(1);
 }
@@ -136,7 +144,7 @@ pub fn subi(avr: &dyn AVR) {
     let d = avr.get_register(d_addr);
     let res = d.wrapping_sub(k);
     avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction(d, k, res);
+    avr.set_status_by_arithmetic_instruction2(d, k, res);
     avr.set_bit(avr.b().c, d < k);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -466,7 +474,7 @@ pub fn cp(avr: &dyn AVR) {
     let (r_addr, d_addr) = avr.word().operand55();
     let (r, d) = avr.get_registers(r_addr, d_addr);
     let res = d.wrapping_sub(r);
-    avr.set_status_by_arithmetic_instruction(d, r, res);
+    avr.set_status_by_arithmetic_instruction2(d, r, res);
     avr.set_bit(avr.b().c, d < r);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -476,7 +484,7 @@ pub fn cpi(avr: &dyn AVR) {
     let (k, d_addr) = avr.word().operand84();
     let d = avr.get_register(d_addr);
     let res = d.wrapping_sub(k);
-    avr.set_status_by_arithmetic_instruction(d, k, res);
+    avr.set_status_by_arithmetic_instruction2(d, k, res);
     avr.set_bit(avr.b().c, d < k);
     avr.pc_increment(1);
     avr.cycle_increment(1);
@@ -488,7 +496,7 @@ pub fn cpc(avr: &dyn AVR) {
     let c = avr.get_bit(avr.b().c) as u8;
     let res = d.wrapping_sub(r).wrapping_sub(c);
 
-    avr.set_bit(avr.b().h, has_borrow_from_bit3(d, r, res));
+    avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, r, res));
     avr.set_bit(avr.b().v, has_2complement_overflow(d, r, res));
     avr.set_bit(avr.b().n, msb(res));
     if res != 0 {
