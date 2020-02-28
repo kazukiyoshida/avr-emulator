@@ -37,6 +37,10 @@ fn main() {
         timer0.clk_io();
         timer1.clk_io();
         timer2.clk_io();
+        portb.clk_io();
+        portc.clk_io();
+        portd.clk_io();
+
         }
 
         thread::sleep(ds);
