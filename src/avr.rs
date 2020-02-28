@@ -209,7 +209,10 @@ pub type RegisterBitAddr = (usize, u8);
 define_stationary_struct!(
     RegisterBitMap,
     RegisterBitAddr,
-    c, z, n, v, s, h, t, i
+    c, z, n, v, s, h, t, i,
+    tov0, ocf0a, ocf0b, // Timer 0
+    tov1, ocf1a, ocf1b, // Timer 1
+    tov2, ocf2a, ocf2b  // Timer 2
 );
 
 pub type RegisterAddr = usize;
@@ -221,7 +224,7 @@ define_stationary_struct!(
     portc, ddrc, pinc, portb, ddrb, pinb, ramend, mcusr, twsr, twar, twdr,
     tcnt0, tccr0a, tccr0b,         ocr0a, ocr0b, timsk0, tifr0, // Timer 0 (8-bit)
            tccr1a, tccr1b, tccr1c,               timsk1, tifr1, // Timer 1 (16-bit)
-    tcnt2, tccr2a, tccr2b,         ocr2a, ocr2b, timsk2, tifr2  // Timer 0 (8-bit)
+    tcnt2, tccr2a, tccr2b,         ocr2a, ocr2b, timsk2, tifr2  // Timer 2 (8-bit)
 );
 
 pub type RegisterWordAddr = (usize, usize);

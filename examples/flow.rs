@@ -27,10 +27,6 @@ fn main() {
     loop {
         s += 1;
         avr.execute();
-        timer0.input_clk();
-        timer1.input_clk();
-        timer2.input_clk();
-
         if s % 100 == 0 {
             println!(
                 "cycle = {:10}    tcnt1 = {:6}   PORTB = {:08b}",
@@ -38,6 +34,9 @@ fn main() {
                 avr.get_word(timer1.tcnt),
                 portb.avr.get_register(portb.ddrx)
             );
+        timer0.clk_io();
+        timer1.clk_io();
+        timer2.clk_io();
         }
 
         thread::sleep(ds);
