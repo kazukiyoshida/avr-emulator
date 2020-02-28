@@ -134,7 +134,6 @@ pub trait AVR {
         (Word(self.fetch(self.pc())), Word(self.fetch(self.pc() + 1)))
     }
 
-    // WIP: Updating algorithm of status bit is not optimized
     fn set_status_by_arithmetic_instruction(&self, d: u8, r: u8, res: u8) {
         self.set_bit(self.b().h, has_borrow_from_bit3(d, r, res));
         self.set_bit(self.b().v, has_2complement_overflow(d, r, res));
