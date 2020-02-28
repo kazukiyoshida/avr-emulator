@@ -13,7 +13,6 @@ pub enum Mode {
 pub struct Timer8bit<'a> {
     pub count: u16,
     pub avr: &'a dyn AVR,
-    pub mode: Mode,
     pub last_cycle: u64,
     pub is_up_phase: bool,
 
@@ -22,21 +21,27 @@ pub struct Timer8bit<'a> {
     pub tccrb: RegisterAddr,
     pub ocra: RegisterAddr,
     pub ocrb: RegisterAddr,
+    pub tov: RegisterBitAddr,
+    pub ocfa: RegisterBitAddr,
+    pub ocfb: RegisterBitAddr,
 }
 
 impl<'a> Timer8bit<'a> {
     pub fn new(
+        count: u16,
         avr: &'a dyn AVR,
         tcnt: RegisterAddr,
         tccra: RegisterAddr,
         tccrb: RegisterAddr,
         ocra: RegisterAddr,
         ocrb: RegisterAddr,
+        tov: RegisterBitAddr,
+        ocfa: RegisterBitAddr,
+        ocfb: RegisterBitAddr,
     ) -> Timer8bit<'a> {
         Timer8bit {
-            count: 0,
+            count: count,
             avr: avr,
-            mode: Mode::Normal,
             last_cycle: 0,
             is_up_phase: true,
 
@@ -45,6 +50,9 @@ impl<'a> Timer8bit<'a> {
             tccrb: tccrb,
             ocra: ocra,
             ocrb: ocrb,
+            tov: tov,
+            ocfa: ocfa,
+            ocfb: ocfb,
         }
     }
 
@@ -68,14 +76,27 @@ impl<'a> Timer8bit<'a> {
         self.avr.get_register(self.ocrb)
     }
 
+    pub fn tov(&self) -> bool {
+        self.avr.get_bit(self.tov)
+    }
+
+    pub fn ocfa(&self) -> bool {
+        self.avr.get_bit(self.ocfa)
+    }
+
+    pub fn ocfb(&self) -> bool {
+        self.avr.get_bit(self.ocfb)
+    }
+
     pub fn is_on(&self) -> bool {
-        self.tccrb() & 0b111 != 0
+        self.prescale().is_some()
     }
 
     pub fn prescale(&self) -> Option<u16> {
         match self.tccrb() & 0b111 {
             0b001 => Some(1),
             0b010 => Some(8),
+            // 0b011 => Some(1),
             0b011 => Some(64),
             0b100 => Some(256),
             0b101 => Some(1024),
@@ -107,54 +128,53 @@ impl<'a> Timer8bit<'a> {
         }
     }
 
-    pub fn update_count(&mut self) {
-        let cycle_diff = self.avr.cycle() - self.last_cycle;
+    pub fn clk_io(&mut self) {
+        let clk = self.avr.cycle() - self.last_cycle;
         self.last_cycle = self.avr.cycle();
-        self.count += cycle_diff as u16;
-    }
-
-    pub fn input_clk(&mut self) {
-        self.update_count();
 
         if !self.is_on() {
             return;
         }
 
-        match self.mode() {
-            Mode::Normal => match self.prescale() {
-                Some(n) => {
-                    if self.count > n {
-                        self.avr.set_register(self.tcnt, self.tcnt() + 1);
-                        self.count = 0;
-                    }
-                }
-                None => (),
-            },
-            Mode::CTC => (),
-            Mode::FastPWM => (),
-            Mode::PhaseCorrectPWM => match self.prescale() {
-                Some(n) => {
-                    // update tcnt
-                    if self.count > n {
-                        self.count = 0;
-                        if self.is_up_phase {
-                            self.avr.set_register(self.tcnt, self.tcnt() + 1);
-                        } else {
-                            self.avr.set_register(self.tcnt, self.tcnt() - 1);
-                        };
-                    }
+        self.count += clk as u16;
+        if self.count >= self.prescale().unwrap() {
+            self.count = 0;
+            if self.is_up_phase {
+                self.avr.set_register(self.tcnt, self.tcnt() + 1);
+            } else {
+                self.avr.set_register(self.tcnt, self.tcnt() - 1);
+            };
+        }
 
-                    // update up/down phase
-                    if self.tcnt() >= self.top() {
-                        self.is_up_phase = false;
-                    }
-                    if self.tcnt() <= 0 {
-                        self.is_up_phase = true;
-                    }
+        match self.mode() {
+            Mode::Normal => {
+                if self.tcnt() >= self.top() {
+                    self.avr.set_register(self.tcnt, 0);
+                    self.avr.set_bit(self.tov, true);
                 }
-                None => (),
-            },
-        };
+            }
+            Mode::CTC => (),
+            Mode::FastPWM => {
+                // WIP: compare match with OCRA, OCRB and update OCnA, OCnB
+                if self.tcnt() >= self.top() {
+                    self.avr.set_register(self.tcnt, 0);
+                    // WIP: update OCnA, OCnB
+                }
+            }
+            Mode::PhaseCorrectPWM => {
+                if self.tcnt() >= self.top() {
+                    self.is_up_phase = false;
+                }
+                if self.tcnt() <= 0 {
+                    self.is_up_phase = true;
+                }
+
+                // うまく実装できないが、登り始めでセットされる..
+                if 1 <= self.tcnt() && self.tcnt() < 10 && self.is_up_phase {
+                    self.avr.set_bit(self.tov, true);
+                }
+            }
+        }
     }
 }
 
@@ -163,12 +183,13 @@ impl<'a> fmt::Display for Timer8bit<'a> {
         write!(
             f,
             "8bit timer =====
-    power: {},    mode: {:?},    prescale: {:?},
+    power: {},    mode: {:?},    prescale: {:?},    top: {},
     count: {:3},    tcnt:  {:3},
     tccra: {:3},    tccrb: {:3},    ocra: {:3},    ocrb: {:3}",
             if self.is_on() { "ON" } else { "OFF" },
-            self.mode,
+            self.mode(),
             self.prescale(),
+            self.top(),
             self.count,
             self.tcnt(),
             self.tccra(),
@@ -183,7 +204,6 @@ impl<'a> fmt::Display for Timer8bit<'a> {
 pub struct Timer16bit<'a> {
     pub count: u16,
     pub avr: &'a dyn AVR,
-    pub mode: Mode,
     pub last_cycle: u64,
     pub is_up_phase: bool,
 
@@ -194,6 +214,9 @@ pub struct Timer16bit<'a> {
     pub icr: RegisterWordAddr,
     pub ocra: RegisterWordAddr,
     pub ocrb: RegisterWordAddr,
+    pub tov: RegisterBitAddr,
+    pub ocfa: RegisterBitAddr,
+    pub ocfb: RegisterBitAddr,
 }
 
 impl<'a> Timer16bit<'a> {
@@ -206,11 +229,13 @@ impl<'a> Timer16bit<'a> {
         icr: RegisterWordAddr,
         ocra: RegisterWordAddr,
         ocrb: RegisterWordAddr,
+        tov: RegisterBitAddr,
+        ocfa: RegisterBitAddr,
+        ocfb: RegisterBitAddr,
     ) -> Timer16bit<'a> {
         Timer16bit {
-            count: 0,
+            count: 4,
             avr: avr,
-            mode: Mode::Normal,
             last_cycle: 0,
 
             tcnt: tcnt,
@@ -221,6 +246,9 @@ impl<'a> Timer16bit<'a> {
             icr: icr,
             ocra: ocra,
             ocrb: ocrb,
+            tov: tov,
+            ocfa: ocfa,
+            ocfb: ocfb,
         }
     }
 
@@ -252,14 +280,27 @@ impl<'a> Timer16bit<'a> {
         self.avr.get_word(self.ocrb)
     }
 
+    pub fn tov(&self) -> bool {
+        self.avr.get_bit(self.tov)
+    }
+
+    pub fn ocfa(&self) -> bool {
+        self.avr.get_bit(self.ocfa)
+    }
+
+    pub fn ocfb(&self) -> bool {
+        self.avr.get_bit(self.ocfb)
+    }
+
     pub fn is_on(&self) -> bool {
-        self.tccrb() & 0b111 != 0
+        self.prescale().is_some()
     }
 
     pub fn prescale(&self) -> Option<u16> {
         match self.tccrb() & 0b111 {
             1 => Some(1),
             2 => Some(8),
+            // 3 => Some(1),
             3 => Some(64),
             4 => Some(256),
             5 => Some(1024),
@@ -267,14 +308,6 @@ impl<'a> Timer16bit<'a> {
         }
     }
 
-    pub fn phase_correct_max(&self) -> u16 {
-        match self.tccra() & 0b11 {
-            0b01 => 0xff,
-            0b10 => 0x1ff,
-            0b11 => 0x3ff,
-            _ => 0,
-        }
-    }
     pub fn top(&self) -> u16 {
         match ((self.tccrb() & 0b11000) >> 3, self.tccra() & 0b11) {
             (0b00, 0b00) => 0xffff,
@@ -318,54 +351,48 @@ impl<'a> Timer16bit<'a> {
         }
     }
 
-    pub fn update_count(&mut self) {
-        let cycle_diff = self.avr.cycle() - self.last_cycle;
+    pub fn clk_io(&mut self) {
+        let clk = self.avr.cycle() - self.last_cycle;
         self.last_cycle = self.avr.cycle();
-        self.count += cycle_diff as u16;
-    }
-
-    pub fn input_clk(&mut self) {
-        self.update_count();
 
         if !self.is_on() {
             return;
         }
 
-        match self.mode() {
-            Mode::Normal => match self.prescale() {
-                Some(n) => {
-                    if self.count > n {
-                        self.avr.set_word(self.tcnt, self.tcnt() + 1);
-                        self.count = 0;
-                    }
-                }
-                None => (),
-            },
-            Mode::CTC => (),
-            Mode::FastPWM => (),
-            Mode::PhaseCorrectPWM => match self.prescale() {
-                Some(n) => {
-                    // update tcnt
-                    if self.count > n {
-                        self.count = 0;
-                        if self.is_up_phase {
-                            self.avr.set_word(self.tcnt, self.tcnt() + 1);
-                        } else {
-                            self.avr.set_word(self.tcnt, self.tcnt() - 1);
-                        };
-                    }
+        self.count += clk as u16;
+        if self.count >= self.prescale().unwrap() {
+            self.count = 0;
+            if self.is_up_phase {
+                self.avr.set_word(self.tcnt, self.tcnt() + 1);
+            } else {
+                self.avr.set_word(self.tcnt, self.tcnt() - 1);
+            };
+        }
 
-                    // update up/down phase
-                    if self.tcnt() >= self.phase_correct_max() {
-                        self.is_up_phase = false;
-                    }
-                    if self.tcnt() <= 0 {
-                        self.is_up_phase = true;
-                    }
+        match self.mode() {
+            Mode::Normal => {
+                if self.tcnt() >= self.top() {
+                    self.avr.set_word(self.tcnt, 0);
+                    self.avr.set_bit(self.tov, !self.tov());
                 }
-                None => (),
-            },
-        };
+            }
+            Mode::CTC => (),
+            Mode::FastPWM => {
+                // compare match with OCRA, OCRB and update OCnA, OCnB
+                if self.tcnt() >= self.top() {
+                    self.avr.set_word(self.tcnt, 0);
+                    // update OCnA, OCnB
+                }
+            }
+            Mode::PhaseCorrectPWM => {
+                if self.tcnt() >= self.top() {
+                    self.is_up_phase = false;
+                }
+                if self.tcnt() <= 0 {
+                    self.is_up_phase = true;
+                }
+            }
+        }
     }
 }
 
@@ -374,12 +401,13 @@ impl<'a> fmt::Display for Timer16bit<'a> {
         write!(
             f,
             "16bit timer =====
-    power: {},    mode: {:?},    prescale: {:?},
+    power: {},    mode: {:?},    prescale: {:?},    top: {},
     count: {:3},    tcnt:  {:3},
     tccra: {:3},    tccrb: {:3},    tccrc: {:3},    icr: {:3},    ocra: {:3},    ocrb: {:3},",
             if self.is_on() { "ON" } else { "OFF" },
             self.mode(),
             self.prescale(),
+            self.top(),
             self.count,
             self.tcnt(),
             self.tccra(),

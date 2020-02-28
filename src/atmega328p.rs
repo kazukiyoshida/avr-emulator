@@ -72,6 +72,21 @@ pub const REGISTER_BIT_MAP: RegisterBitMap = RegisterBitMap {
     h: (REGISTER_MAP.sreg, 5),
     t: (REGISTER_MAP.sreg, 6),
     i: (REGISTER_MAP.sreg, 7),
+
+    // Timer 0
+    tov0: (REGISTER_MAP.tifr0, 0),
+    ocf0a: (REGISTER_MAP.tifr0, 1),
+    ocf0b: (REGISTER_MAP.tifr0, 2),
+
+    // Timer 1
+    tov1: (REGISTER_MAP.tifr1, 0),
+    ocf1a: (REGISTER_MAP.tifr1, 1),
+    ocf1b: (REGISTER_MAP.tifr1, 2),
+
+    // Timer 2
+    tov2: (REGISTER_MAP.tifr2, 0),
+    ocf2a: (REGISTER_MAP.tifr2, 1),
+    ocf2b: (REGISTER_MAP.tifr2, 2),
 };
 
 pub const REGISTER_WORD_MAP: RegisterWordMap = RegisterWordMap {
@@ -152,12 +167,16 @@ impl ATmega328P {
 
     pub fn new_timer0(&self) -> Timer8bit {
         Timer8bit::new(
+            0,
             self,
             REGISTER_MAP.tcnt0,
             REGISTER_MAP.tccr0a,
             REGISTER_MAP.tccr0b,
             REGISTER_MAP.ocr0a,
             REGISTER_MAP.ocr0b,
+            REGISTER_BIT_MAP.tov0,
+            REGISTER_BIT_MAP.ocf0a,
+            REGISTER_BIT_MAP.ocf0b,
         )
     }
 
@@ -171,17 +190,24 @@ impl ATmega328P {
             REGISTER_WORD_MAP.icr1,
             REGISTER_WORD_MAP.ocr1a,
             REGISTER_WORD_MAP.ocr1b,
+            REGISTER_BIT_MAP.tov1,
+            REGISTER_BIT_MAP.ocf1a,
+            REGISTER_BIT_MAP.ocf1b,
         )
     }
 
     pub fn new_timer2(&self) -> Timer8bit {
         Timer8bit::new(
+            190,
             self,
             REGISTER_MAP.tcnt2,
             REGISTER_MAP.tccr2a,
             REGISTER_MAP.tccr2b,
             REGISTER_MAP.ocr2a,
             REGISTER_MAP.ocr2b,
+            REGISTER_BIT_MAP.tov2,
+            REGISTER_BIT_MAP.ocf2a,
+            REGISTER_BIT_MAP.ocf2b,
         )
     }
 

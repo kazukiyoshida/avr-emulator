@@ -134,10 +134,17 @@ pub trait AVR {
         (Word(self.fetch(self.pc())), Word(self.fetch(self.pc() + 1)))
     }
 
-    // WIP: Updating algorithm of status bit is not optimized
     fn set_status_by_arithmetic_instruction(&self, d: u8, r: u8, res: u8) {
         self.set_bit(self.b().h, has_borrow_from_bit3(d, r, res));
         self.set_bit(self.b().v, has_2complement_overflow(d, r, res));
+        self.set_bit(self.b().n, msb(res));
+        self.set_bit(self.b().z, res == 0);
+        self.set_bit(self.b().s, self.signed_test());
+    }
+
+    fn set_status_by_arithmetic_instruction2(&self, d: u8, k: u8, res: u8) {
+        self.set_bit(self.b().h, has_borrow_from_bit3_k(d, k, res));
+        self.set_bit(self.b().v, has_2complement_overflow(d, k, res));
         self.set_bit(self.b().n, msb(res));
         self.set_bit(self.b().z, res == 0);
         self.set_bit(self.b().s, self.signed_test());
@@ -209,7 +216,10 @@ pub type RegisterBitAddr = (usize, u8);
 define_stationary_struct!(
     RegisterBitMap,
     RegisterBitAddr,
-    c, z, n, v, s, h, t, i
+    c, z, n, v, s, h, t, i,
+    tov0, ocf0a, ocf0b, // Timer 0
+    tov1, ocf1a, ocf1b, // Timer 1
+    tov2, ocf2a, ocf2b  // Timer 2
 );
 
 pub type RegisterAddr = usize;
@@ -221,7 +231,7 @@ define_stationary_struct!(
     portc, ddrc, pinc, portb, ddrb, pinb, ramend, mcusr, twsr, twar, twdr,
     tcnt0, tccr0a, tccr0b,         ocr0a, ocr0b, timsk0, tifr0, // Timer 0 (8-bit)
            tccr1a, tccr1b, tccr1c,               timsk1, tifr1, // Timer 1 (16-bit)
-    tcnt2, tccr2a, tccr2b,         ocr2a, ocr2b, timsk2, tifr2  // Timer 0 (8-bit)
+    tcnt2, tccr2a, tccr2b,         ocr2a, ocr2b, timsk2, tifr2  // Timer 2 (8-bit)
 );
 
 pub type RegisterWordAddr = (usize, usize);

@@ -7,9 +7,14 @@ build:
 	$(CARGO) build $(CARGO_FLAGS)
 
 # Check the format of the source code
-.PHONY: fmt
+.PHONY: fmt-check
 fmt:
 	cargo fmt --all -- --check
+
+# fmt fix
+.PHONY: fmt
+fmt:
+	cargo fmt
 
 # Run the tests
 .PHONY: test

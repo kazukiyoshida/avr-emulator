@@ -1,14 +1,11 @@
 use avr_emulator::atmega328p::*;
 use avr_emulator::avr::*;
-use avr_emulator::logger::*;
-use std::collections::VecDeque;
-use std::env;
-use std::{thread, time};
+// use std::{thread, time};
 
 pub const SAMPLE_FILE_NAME: &str = "hex/avr_studio/led_flashing_fast/led_flashing.hex";
 
 fn main() {
-    let ds = time::Duration::from_millis(1);
+    // let ds = time::Duration::from_millis(1);
     let mut s = 0;
 
     let avr = ATmega328P::new();
@@ -27,19 +24,17 @@ fn main() {
     loop {
         s += 1;
         avr.execute();
-        timer0.input_clk();
-        timer1.input_clk();
-        timer2.input_clk();
+        timer0.clk_io();
+        timer1.clk_io();
+        timer2.clk_io();
+        portb.clk_io();
+        portc.clk_io();
+        portd.clk_io();
 
-        if s % 100 == 0 {
-            println!(
-                "cycle = {:10}    tcnt1 = {:6}   PORTB = {:08b}",
-                avr.cycle(),
-                avr.get_word(timer1.tcnt),
-                portb.avr.get_register(portb.ddrx)
-            );
+        if s % 10_000 == 0 {
+            println!("cycle = {:10}    PORTB = {}", avr.cycle(), portb,);
         }
 
-        thread::sleep(ds);
+        // thread::sleep(ds);
     }
 }

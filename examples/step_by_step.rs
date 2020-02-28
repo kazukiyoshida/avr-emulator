@@ -42,9 +42,12 @@ fn main() {
 
         if avr.cycle() < skip_to_cycle {
             avr.execute();
-            timer0.input_clk();
-            timer1.input_clk();
-            timer2.input_clk();
+            timer0.clk_io();
+            timer1.clk_io();
+            timer2.clk_io();
+            portb.clk_io();
+            portc.clk_io();
+            portd.clk_io();
         } else {
             let (instr, instr_func) = avr.decode_instr(avr.word());
             logger.append(&avr);
@@ -69,9 +72,12 @@ fn main() {
             println!("Port D   {}", portd);
 
             instr_func(&avr);
-            timer0.input_clk();
-            timer1.input_clk();
-            timer2.input_clk();
+            timer0.clk_io();
+            timer1.clk_io();
+            timer2.clk_io();
+            portb.clk_io();
+            portc.clk_io();
+            portd.clk_io();
 
             std::io::stdin().read_line(&mut String::new()).ok();
         }
