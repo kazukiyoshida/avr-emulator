@@ -4,7 +4,7 @@ use avr_emulator::logger::*;
 use std::collections::VecDeque;
 use std::env;
 
-pub const SAMPLE_FILE_NAME: &str = "hex/avr_studio/led_flashing_fast/led_flashing.hex";
+pub const SAMPLE_FILE_NAME: &str = "hex/atmel_studio/led_flashing_fast/led_flashing.hex";
 
 fn main() {
     let args: Vec<String> = env::args().collect();

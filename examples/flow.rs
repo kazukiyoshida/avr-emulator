@@ -2,7 +2,7 @@ use avr_emulator::atmega328p::*;
 use avr_emulator::avr::*;
 // use std::{thread, time};
 
-pub const SAMPLE_FILE_NAME: &str = "hex/avr_studio/led_flashing_fast/led_flashing.hex";
+pub const SAMPLE_FILE_NAME: &str = "hex/atmel_studio/led_flashing_fast/led_flashing.hex";
 
 fn main() {
     // let ds = time::Duration::from_millis(1);
