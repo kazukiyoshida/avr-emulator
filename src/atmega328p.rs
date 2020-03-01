@@ -167,7 +167,7 @@ impl ATmega328P {
 
     pub fn new_timer0(&self) -> Timer8bit {
         Timer8bit::new(
-            0,
+            Timer8bitType::A,
             self,
             REGISTER_MAP.tcnt0,
             REGISTER_MAP.tccr0a,
@@ -198,7 +198,7 @@ impl ATmega328P {
 
     pub fn new_timer2(&self) -> Timer8bit {
         Timer8bit::new(
-            190,
+            Timer8bitType::B,
             self,
             REGISTER_MAP.tcnt2,
             REGISTER_MAP.tccr2a,
@@ -241,10 +241,13 @@ impl ATmega328P {
     pub fn initialize_sram(&self) {
         self.set_word(REGISTER_WORD_MAP.sp, REGISTER_MAP.ramend as u16);
         self.set_register(0x12, 0x01);
+        self.set_register(0x16, 0x01);
+        self.set_register(0x18, 0x87);
         self.set_register(0x1a, 0x09);
         self.set_register(0x1b, 0x01);
         self.set_register(0x1c, 0xff);
         self.set_register(0x1d, 0x08);
+        self.set_register(0x1e, 0x7a);
         self.set_register(REGISTER_MAP.mcusr, 0x01);
         self.set_register(REGISTER_MAP.twsr, 0xf8);
         self.set_register(REGISTER_MAP.twar, 0xfe);

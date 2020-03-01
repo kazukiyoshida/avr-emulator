@@ -9,8 +9,15 @@ pub enum Mode {
     PhaseCorrectPWM,
 }
 
+#[derive(Debug)]
+pub enum Timer8bitType {
+    A,
+    B,
+}
+
 // 8 bit timer ================================================================
 pub struct Timer8bit<'a> {
+    pub timer_type: Timer8bitType,
     pub count: u16,
     pub avr: &'a dyn AVR,
     pub last_cycle: u64,
@@ -28,7 +35,7 @@ pub struct Timer8bit<'a> {
 
 impl<'a> Timer8bit<'a> {
     pub fn new(
-        count: u16,
+        timer_type: Timer8bitType,
         avr: &'a dyn AVR,
         tcnt: RegisterAddr,
         tccra: RegisterAddr,
@@ -40,7 +47,8 @@ impl<'a> Timer8bit<'a> {
         ocfb: RegisterBitAddr,
     ) -> Timer8bit<'a> {
         Timer8bit {
-            count: count,
+            timer_type: timer_type,
+            count: 0,
             avr: avr,
             last_cycle: 0,
             is_up_phase: true,
@@ -92,7 +100,7 @@ impl<'a> Timer8bit<'a> {
         self.prescale().is_some()
     }
 
-    pub fn prescale(&self) -> Option<u16> {
+    pub fn prescale_a(&self) -> Option<u16> {
         match self.tccrb() & 0b111 {
             0b001 => Some(1),
             0b010 => Some(8),
@@ -101,6 +109,23 @@ impl<'a> Timer8bit<'a> {
             0b100 => Some(256),
             0b101 => Some(1024),
             _ => None,
+        }
+    }
+
+    pub fn prescale_b(&self) -> Option<u16> {
+        match self.tccrb() & 0b111 {
+            0b001 => Some(1),
+            0b010 => Some(8),
+            0b011 => Some(32),
+            0b100 => Some(64),
+            _ => None,
+        }
+    }
+
+    pub fn prescale(&self) -> Option<u16> {
+        match self.timer_type {
+            Timer8bitType::A => self.prescale_a(),
+            Timer8bitType::B => self.prescale_b(),
         }
     }
 
@@ -129,16 +154,17 @@ impl<'a> Timer8bit<'a> {
     }
 
     pub fn clk_io(&mut self) {
-        let clk = self.avr.cycle() - self.last_cycle;
-        self.last_cycle = self.avr.cycle();
-
         if !self.is_on() {
+            self.last_cycle = self.avr.cycle();
             return;
         }
 
-        self.count += clk as u16;
-        if self.count >= self.prescale().unwrap() {
-            self.count = 0;
+        let diff_clk = self.avr.cycle() - self.last_cycle;
+        self.count += diff_clk as u16;
+
+        let prescale = self.prescale().unwrap();
+        if self.count > prescale {
+            self.count -= prescale + 1;
             if self.is_up_phase {
                 self.avr.set_register(self.tcnt, self.tcnt() + 1);
             } else {
@@ -175,6 +201,9 @@ impl<'a> Timer8bit<'a> {
                 }
             }
         }
+
+        // update state
+        self.last_cycle = self.avr.cycle();
     }
 }
 
@@ -202,9 +231,10 @@ impl<'a> fmt::Display for Timer8bit<'a> {
 
 // 16 bit timer ================================================================
 pub struct Timer16bit<'a> {
-    pub count: u16,
+    pub count: i16,
     pub avr: &'a dyn AVR,
     pub last_cycle: u64,
+    pub last_prescale: Option<i16>,
     pub is_up_phase: bool,
 
     pub tcnt: RegisterWordAddr,
@@ -234,9 +264,10 @@ impl<'a> Timer16bit<'a> {
         ocfb: RegisterBitAddr,
     ) -> Timer16bit<'a> {
         Timer16bit {
-            count: 4,
+            count: 0,
             avr: avr,
             last_cycle: 0,
+            last_prescale: None,
 
             tcnt: tcnt,
             is_up_phase: true,
@@ -296,7 +327,7 @@ impl<'a> Timer16bit<'a> {
         self.prescale().is_some()
     }
 
-    pub fn prescale(&self) -> Option<u16> {
+    pub fn prescale(&self) -> Option<i16> {
         match self.tccrb() & 0b111 {
             1 => Some(1),
             2 => Some(8),
@@ -352,23 +383,46 @@ impl<'a> Timer16bit<'a> {
     }
 
     pub fn clk_io(&mut self) {
-        let clk = self.avr.cycle() - self.last_cycle;
-        self.last_cycle = self.avr.cycle();
-
         if !self.is_on() {
+            self.last_cycle = self.avr.cycle();
             return;
         }
 
-        self.count += clk as u16;
-        if self.count >= self.prescale().unwrap() {
-            self.count = 0;
-            if self.is_up_phase {
-                self.avr.set_word(self.tcnt, self.tcnt() + 1);
+        if self.last_prescale != self.prescale() {
+            // WIP: prescale が増加した場合、その増加の比率だけ count を進め、
+            // tcnt は +1 される、としている.
+            if self.last_prescale.is_some() && self.prescale().is_some() {
+                let last_prescale = self.last_prescale.unwrap();
+                let prescale = self.prescale().unwrap();
+                if prescale > last_prescale {
+                    self.count = self.count * prescale / last_prescale;
+                    if self.is_up_phase {
+                        self.avr.set_word(self.tcnt, self.tcnt() + 1);
+                    } else {
+                        self.avr.set_word(self.tcnt, self.tcnt() - 1);
+                    };
+                }
+                let diff_clk = self.avr.cycle() - self.last_cycle;
+                self.count += diff_clk as i16;
             } else {
-                self.avr.set_word(self.tcnt, self.tcnt() - 1);
-            };
+                self.count = 0;
+            }
+        } else {
+            let diff_clk = self.avr.cycle() - self.last_cycle;
+            self.count += diff_clk as i16;
+
+            let prescale = self.prescale().unwrap();
+            if self.count > prescale {
+                self.count -= prescale + 1;
+                if self.is_up_phase {
+                    self.avr.set_word(self.tcnt, self.tcnt() + 1);
+                } else {
+                    self.avr.set_word(self.tcnt, self.tcnt() - 1);
+                };
+            }
         }
 
+        // check tcnt's compare match
         match self.mode() {
             Mode::Normal => {
                 if self.tcnt() >= self.top() {
@@ -393,6 +447,10 @@ impl<'a> Timer16bit<'a> {
                 }
             }
         }
+
+        // update state
+        self.last_cycle = self.avr.cycle();
+        self.last_prescale = self.prescale();
     }
 }
 
