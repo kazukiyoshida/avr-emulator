@@ -67,7 +67,7 @@ pub fn sbci(avr: &dyn AVR) {
     avr.set_register(d_addr, res);
 
     avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, k, res));
-    avr.set_bit(avr.b().v, has_2complement_overflow(d, k, res));
+    avr.set_bit(avr.b().v, has_2complement_overflow_2(d, k, res));
     avr.set_bit(avr.b().n, msb(res));
     if res != 0 {
         avr.set_bit(avr.b().z, false);
@@ -123,7 +123,7 @@ pub fn sbc(avr: &dyn AVR) {
     let (r_addr, d_addr) = avr.word().operand55();
     let (r, d) = avr.get_registers(r_addr, d_addr);
     let c = avr.get_bit(avr.b().c) as u8;
-    let res = d.wrapping_add(r).wrapping_add(c);
+    let res = d.wrapping_sub(r).wrapping_sub(c);
     avr.set_register(d_addr, res);
 
     avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, r, res));
@@ -488,7 +488,7 @@ pub fn cpc(avr: &dyn AVR) {
     let res = d.wrapping_sub(r).wrapping_sub(c);
 
     avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, r, res));
-    avr.set_bit(avr.b().v, has_2complement_overflow(d, r, res));
+    avr.set_bit(avr.b().v, has_2complement_overflow_2(d, r, res));
     avr.set_bit(avr.b().n, msb(res));
     if res != 0 {
         avr.set_bit(avr.b().z, false);

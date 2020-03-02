@@ -39,6 +39,11 @@ pub fn has_borrow_from_msb(a: u8, b: u8, r: u8) -> bool {
 
 pub fn has_2complement_overflow(a: u8, b: u8, r: u8) -> bool {
     let (a7, b7, r7) = (bit(a, 7), bit(b, 7), bit(r, 7));
+    a7 & b7 & !r7 | !a7 & !b7 & r7
+}
+
+pub fn has_2complement_overflow_2(a: u8, b: u8, r: u8) -> bool {
+    let (a7, b7, r7) = (bit(a, 7), bit(b, 7), bit(r, 7));
     a7 & !b7 & !r7 | !a7 & b7 & r7
 }
 
