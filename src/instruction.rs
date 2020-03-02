@@ -155,7 +155,7 @@ pub fn ld1(avr: &dyn AVR) {
     let x_addr = avr.get_word(avr.w().x);
     avr.set_register(d_addr, avr.get_register(x_addr as usize));
     avr.pc_increment(1);
-    avr.cycle_increment(1);
+    avr.cycle_increment(2); // 割り込みの有無が影響する
 }
 
 pub fn ld2(avr: &dyn AVR) {
@@ -326,10 +326,14 @@ pub fn rcall(avr: &dyn AVR) {
 }
 
 pub fn jmp(avr: &dyn AVR) {
+    if avr.pc() == 0 {
+        avr.cycle_increment(2);
+    } else {
+        avr.cycle_increment(3);
+    }
     let (w1, w2) = avr.double_word();
     let k = w1.operand22(w2);
     avr.set_pc(k);
-    avr.cycle_increment(2); // 3 cycles in Manual
 }
 
 pub fn rjmp(avr: &dyn AVR) {

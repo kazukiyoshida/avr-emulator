@@ -19,7 +19,7 @@ fmt:
 # Run the tests
 .PHONY: test
 test:
-	$(CARGO) test --all-features
+	$(CARGO) test -- --nocapture
 
 
 n: 0
