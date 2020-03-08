@@ -194,7 +194,6 @@ pub trait AVR {
                 if list.len() != 4 {
                     continue
                 }
-                println!("list >> {:?}", list);
                 let a = list[0].to_digit(16).unwrap();
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
