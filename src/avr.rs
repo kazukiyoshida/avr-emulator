@@ -181,6 +181,8 @@ pub trait AVR {
 
             // Example intel Hex file's line
             // :060040004A95E9F708955E
+            // -> :060040004A95E9F708955E
+            // :100000 | 00 | 0C945C000C946E000C946E000C946E00 | CA
             let record_type = &line[7..9];
             let data = &line[9..line.len() - 2];
 
@@ -189,6 +191,41 @@ pub trait AVR {
             }
 
             for list in data.chars().collect::<Vec<char>>().chunks(4) {
+                if list.len() != 4 {
+                    continue
+                }
+                println!("list >> {:?}", list);
+                let a = list[0].to_digit(16).unwrap();
+                let b = list[1].to_digit(16).unwrap();
+                let c = list[2].to_digit(16).unwrap();
+                let d = list[3].to_digit(16).unwrap();
+                self.flash_memory()
+                    .borrow_mut()
+                    .set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
+                memory_addr += 1;
+            }
+        }
+    }
+
+    fn load_hex_from_string(&self, hex: String) {
+        let hex_lines: Vec<&str> = hex.split("\n").collect();
+        let mut memory_addr = 0;
+        for line in hex_lines {
+            if line.len() < 11 {
+                continue;
+            }
+
+            let record_type = &line[7..9];
+            let data = &line[9..line.len() - 2];
+
+            if record_type != "00" {
+                continue;
+            }
+
+            for list in data.chars().collect::<Vec<char>>().chunks(4) {
+                if list.len() != 4 {
+                    continue
+                }
                 let a = list[0].to_digit(16).unwrap();
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
