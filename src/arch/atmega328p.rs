@@ -1,9 +1,13 @@
+use super::super::avrmcu::*;
 use super::super::flash_memory::*;
+use super::super::instruction::*;
 use super::super::io_port::*;
+use super::super::opcode_tree::*;
 use super::super::sram::*;
 use super::super::timer16bit::*;
 use super::super::timer8bit::*;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 
 const FLASH_MEMORY_SIZE: usize = 0x8000;
@@ -104,8 +108,9 @@ const REGISTER_WORD_MAP: RegisterWordMap = RegisterWordMap {
 };
 
 pub struct ATmega328P {
-    pc: Cell<u32>,
-    cycle: Cell<u64>,
+    pc: u32,
+    cycle: u64,
+    instr: Option<Instr>,
     sram: Rc<RefCell<SRAM>>,
     flash_memory: Rc<RefCell<FlashMemory>>,
     timer0: Timer8bit,
@@ -189,8 +194,9 @@ impl ATmega328P {
         );
 
         ATmega328P {
-            pc: Cell::new(0),
-            cycle: Cell::new(0),
+            pc: 0,
+            cycle: 0,
+            instr: None,
             sram: sram,
             flash_memory: flash_memory,
             timer0: timer0,
@@ -201,8 +207,14 @@ impl ATmega328P {
             portd: portd,
         }
     }
+}
 
-    pub fn initialize_sram(&self) {
+impl AVRMCU for ATmega328P {
+    fn program(&self, hex: String) {
+        self.flash_memory.borrow_mut().load_hex_from_string(hex);
+    }
+
+    fn initialize(&self) {
         let mut sram = self.sram.borrow_mut();
         sram.set_word(REGISTER_WORD_MAP.sp, REGISTER_MAP.ramend as u16);
         sram.set(0x12, 0x01);
@@ -219,5 +231,71 @@ impl ATmega328P {
         sram.set(REGISTER_MAP.twdr, 0xff);
         sram.set(REGISTER_MAP.ucsr0a, 0x20);
         sram.set(REGISTER_MAP.ucsr0c, 0x06);
+    }
+
+    fn get_pins(&self) -> Vec<bool> {
+        vec![false, false, false]
+    }
+
+    fn set_pins(&self, pins: Vec<bool>) {}
+}
+
+impl Iterator for ATmega328P {
+    type Item = ();
+    fn next(&mut self) -> Option<()> {
+        let (instr, f) =
+            OPCODE_TREE.with(|tree| tree.find(self.flash_memory.borrow().get(self.pc as usize)));
+        self.instr = Some(instr);
+        self.cycle += 1;
+        Some(())
+    }
+}
+
+impl fmt::Display for ATmega328P {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let log = if self.cycle == 0 {
+            format!(
+                ">>>>>>>>>>>>> FLASH MEMORY >>>>>>>>>>>>>>{}",
+                self.flash_memory.borrow()
+            )
+        } else {
+            let x_addr = self.sram.borrow().word_map.x;
+            let y_addr = self.sram.borrow().word_map.y;
+            let z_addr = self.sram.borrow().word_map.z;
+            let sreg_addr = self.sram.borrow().map.sreg;
+
+            let core = format!(
+                r#"
+>>>>>>>>>>>>> CORE >>>>>>>>>>>>>>
+Program Counter:  {:#08x} (Hexfile = {:x})
+Next Instruction: {:?}
+Stack Pointer:    {:#04x}
+X Register:       {:#04x}
+Y Register:       {:#04x}
+Z Register:       {:#04x}
+Status Register:  {:08b}
+Cycle Counter:    {}"#,
+                self.pc,
+                self.pc * 2,
+                self.instr,
+                self.sram.borrow().sp(),
+                self.sram.borrow().get_word(x_addr),
+                self.sram.borrow().get_word(y_addr),
+                self.sram.borrow().get_word(z_addr),
+                self.sram.borrow().get(sreg_addr),
+                self.cycle,
+            );
+            let sram = format!(">>>>>>>>>>>>> SRAM >>>>>>>>>>>>>>{}", self.sram.borrow());
+            let timer = format!(
+                ">>>>>>>>>>>>> TIMER >>>>>>>>>>>>>>\n{}\n{}\n{}",
+                self.timer0, self.timer1, self.timer2,
+            );
+            let port = format!(
+                ">>>>>>>>>>>>> IO PORT >>>>>>>>>>>>>>\n{}\n{}\n{}",
+                self.portb, self.portc, self.portd,
+            );
+            format!("{}\n{}\n{}\n{}", core, sram, timer, port)
+        };
+        write!(f, "{}", log)
     }
 }

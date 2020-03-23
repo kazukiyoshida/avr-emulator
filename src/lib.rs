@@ -1,4 +1,5 @@
-mod arch;
+pub mod arch;
+pub mod avrmcu;
 mod flash_memory;
 mod instruction;
 mod io_port;

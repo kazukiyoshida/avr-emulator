@@ -43,9 +43,12 @@ impl IOPort {
     fn pinx(&self) -> u8 {
         self.sram.borrow().get(self.pinx)
     }
+}
 
+impl Iterator for IOPort {
+    type Item = ();
     // TODO: 1 cycle ずれている
-    pub fn clk_io(&mut self) {
+    fn next(&mut self) -> Option<()> {
         if self.last_portx != self.portx()
             || self.last_ddrx != self.ddrx()
             || self.last_pinx != self.pinx()
@@ -63,6 +66,7 @@ impl IOPort {
             self.last_ddrx = self.ddrx();
             self.last_pinx = self.pinx();
         }
+        Some(())
     }
 }
 

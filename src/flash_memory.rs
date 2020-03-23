@@ -1,4 +1,6 @@
+use super::util::bit::*;
 use super::word::*;
+use std::fmt;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -23,6 +25,20 @@ impl FlashMemory {
 
     pub fn word(&self, pc: usize) -> Word {
         Word(self.get(pc))
+    }
+
+    pub fn double_word(&self, pc: usize) -> (Word, Word) {
+        (self.word(pc), self.word(pc + 1))
+    }
+
+    pub fn z_program_memory(&self, z_addr: u16) -> u8 {
+        if z_addr % 2 == 0 {
+            let addr = z_addr / 2;
+            low_byte(self.get(addr as usize))
+        } else {
+            let addr = (z_addr - 1) / 2;
+            high_byte(self.get(addr as usize))
+        }
     }
 
     // Example intel Hex file's line
@@ -84,5 +100,28 @@ impl FlashMemory {
                 memory_addr += 1;
             }
         }
+    }
+}
+
+impl fmt::Display for FlashMemory {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut sum = String::from("");
+        for i in 0..20 {
+            let i = i * 8;
+            let s = format!(
+                "{:#06x} | {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:04x}",
+                i * 2,
+                self.get(i + 0),
+                self.get(i + 1),
+                self.get(i + 2),
+                self.get(i + 3),
+                self.get(i + 4),
+                self.get(i + 5),
+                self.get(i + 6),
+                self.get(i + 7),
+            );
+            sum = format!("{}\n{}", sum, s);
+        }
+        write!(f, "{}", sum)
     }
 }
