@@ -81,16 +81,22 @@ impl SRAM {
         bit(self.data[addr.0], addr.1)
     }
 
-    pub fn set_bit(&self, addr: RegisterBitAddr, v: bool) {
-        // WIP
+    pub fn set_bit(&mut self, addr: RegisterBitAddr, v: bool) {
+        let old = self.get(addr.0);
+        if v {
+            self.set(addr.0, old | (1 << addr.1));
+        } else {
+            self.set(addr.0, old & !(1 << addr.1));
+        }
     }
 
     pub fn get_word(&self, addr: RegisterWordAddr) -> u16 {
         concat(self.get(addr.0), self.get(addr.1))
     }
 
-    pub fn set_word(&self, addr: RegisterWordAddr, v: u16) {
-        // WIP
+    pub fn set_word(&mut self, addr: RegisterWordAddr, v: u16) {
+        self.set(addr.0, high_byte(v));
+        self.set(addr.1, low_byte(v));
     }
 
     pub fn sp(&self) -> u16 {

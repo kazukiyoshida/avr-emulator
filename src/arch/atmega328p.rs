@@ -6,6 +6,7 @@ use super::super::opcode_tree::*;
 use super::super::sram::*;
 use super::super::timer16bit::*;
 use super::super::timer8bit::*;
+use super::super::util::bit::*;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -107,10 +108,15 @@ const REGISTER_WORD_MAP: RegisterWordMap = RegisterWordMap {
     icr1: (0x87, 0x86),
 };
 
+pub enum Package {
+    PDIP28,
+}
+
 pub struct ATmega328P {
-    pc: u32,
-    cycle: u64,
+    pub pc: usize,
+    pub cycle: u64,
     instr: Option<Instr>,
+    instr_func: Option<InstrFunc>,
     sram: Rc<RefCell<SRAM>>,
     flash_memory: Rc<RefCell<FlashMemory>>,
     timer0: Timer8bit,
@@ -119,10 +125,11 @@ pub struct ATmega328P {
     portb: IOPort,
     portc: IOPort,
     portd: IOPort,
+    package: Package,
 }
 
 impl ATmega328P {
-    pub fn new() -> ATmega328P {
+    pub fn new(package: Package) -> ATmega328P {
         let sram = Rc::new(RefCell::new(SRAM::new(
             SRAM_SIZE,
             &REGISTER_MAP,
@@ -197,6 +204,7 @@ impl ATmega328P {
             pc: 0,
             cycle: 0,
             instr: None,
+            instr_func: None,
             sram: sram,
             flash_memory: flash_memory,
             timer0: timer0,
@@ -205,7 +213,43 @@ impl ATmega328P {
             portb: portb,
             portc: portc,
             portd: portd,
+            package: package,
         }
+    }
+
+    fn pdip28(&self) -> [bool; 28] {
+        [
+            // 1 ~ 14
+            bit(self.portc.pinx(), 6),
+            bit(self.portd.pinx(), 0),
+            bit(self.portd.pinx(), 1),
+            bit(self.portd.pinx(), 2),
+            bit(self.portd.pinx(), 3),
+            bit(self.portd.pinx(), 4),
+            true,  // vcc
+            false, // gnd
+            bit(self.portb.pinx(), 6),
+            bit(self.portb.pinx(), 7),
+            bit(self.portd.pinx(), 5),
+            bit(self.portd.pinx(), 6),
+            bit(self.portd.pinx(), 7),
+            bit(self.portb.pinx(), 0),
+            // 15 ~ 28
+            bit(self.portb.pinx(), 1),
+            bit(self.portb.pinx(), 2),
+            bit(self.portb.pinx(), 3),
+            bit(self.portb.pinx(), 4),
+            bit(self.portb.pinx(), 5),
+            true,  // avcc
+            true,  // aref
+            false, // gnd
+            bit(self.portc.pinx(), 0),
+            bit(self.portc.pinx(), 1),
+            bit(self.portc.pinx(), 2),
+            bit(self.portc.pinx(), 3),
+            bit(self.portc.pinx(), 4),
+            bit(self.portc.pinx(), 5),
+        ]
     }
 }
 
@@ -214,7 +258,8 @@ impl AVRMCU for ATmega328P {
         self.flash_memory.borrow_mut().load_hex_from_string(hex);
     }
 
-    fn initialize(&self) {
+    fn initialize(&mut self) {
+        // setup initial sram
         let mut sram = self.sram.borrow_mut();
         sram.set_word(REGISTER_WORD_MAP.sp, REGISTER_MAP.ramend as u16);
         sram.set(0x12, 0x01);
@@ -231,10 +276,20 @@ impl AVRMCU for ATmega328P {
         sram.set(REGISTER_MAP.twdr, 0xff);
         sram.set(REGISTER_MAP.ucsr0a, 0x20);
         sram.set(REGISTER_MAP.ucsr0c, 0x06);
+
+        // prepare for start
+        self.pc = 0;
+        self.cycle = 0;
+        let word = self.flash_memory.borrow().get(self.pc as usize);
+        let (instr, instr_func) = OPCODE_TREE.with(|tree| tree.find(word));
+        self.instr = Some(instr);
+        self.instr_func = Some(instr_func);
     }
 
     fn get_pins(&self) -> Vec<bool> {
-        vec![false, false, false]
+        match &self.package {
+            PDIP28 => self.pdip28().to_vec(),
+        }
     }
 
     fn set_pins(&self, pins: Vec<bool>) {}
@@ -243,10 +298,29 @@ impl AVRMCU for ATmega328P {
 impl Iterator for ATmega328P {
     type Item = ();
     fn next(&mut self) -> Option<()> {
-        let (instr, f) =
-            OPCODE_TREE.with(|tree| tree.find(self.flash_memory.borrow().get(self.pc as usize)));
+        // execute
+        let (next_pc, next_cycle) = self.instr_func.unwrap()(
+            &mut self.sram.borrow_mut(),
+            &self.flash_memory.borrow(),
+            self.pc,
+            self.cycle,
+        );
+        let cycle_diff = next_cycle - self.cycle;
+        self.timer0.next(cycle_diff);
+        self.timer1.next(cycle_diff);
+        self.timer2.next(cycle_diff);
+        self.portb.next();
+        self.portc.next();
+        self.portd.next();
+
+        // prepare for next
+        self.pc = next_pc;
+        self.cycle = next_cycle;
+        let word = self.flash_memory.borrow().get(self.pc as usize);
+        let (instr, instr_func) = OPCODE_TREE.with(|tree| tree.find(word));
         self.instr = Some(instr);
-        self.cycle += 1;
+        self.instr_func = Some(instr_func);
+
         Some(())
     }
 }
@@ -294,7 +368,9 @@ Cycle Counter:    {}"#,
                 ">>>>>>>>>>>>> IO PORT >>>>>>>>>>>>>>\n{}\n{}\n{}",
                 self.portb, self.portc, self.portd,
             );
-            format!("{}\n{}\n{}\n{}", core, sram, timer, port)
+            let pins = format!(">>>>>>>>>>>>> PINS >>>>>>>>>>>>>>\n{:?}", self.get_pins(),);
+
+            format!("{}\n{}\n{}\n{}\n{}", core, sram, timer, port, pins)
         };
         write!(f, "{}", log)
     }

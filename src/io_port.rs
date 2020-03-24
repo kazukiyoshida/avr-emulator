@@ -40,7 +40,7 @@ impl IOPort {
         self.sram.borrow().get(self.ddrx)
     }
 
-    fn pinx(&self) -> u8 {
+    pub fn pinx(&self) -> u8 {
         self.sram.borrow().get(self.pinx)
     }
 }

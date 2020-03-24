@@ -163,7 +163,7 @@ impl Timer16bit {
         }
     }
 
-    pub fn clk_io(&mut self, cycle: u64) {
+    pub fn next(&mut self, cycle: u64) {
         if !self.is_on() {
             self.last_cycle = cycle;
             return;

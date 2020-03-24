@@ -67,7 +67,7 @@ impl FlashMemory {
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
-                self.set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
+                self.set(memory_addr, (c << 12 | d << 8 | a << 4 | b) as u16);
                 memory_addr += 1;
             }
         }
@@ -96,7 +96,7 @@ impl FlashMemory {
                 let b = list[1].to_digit(16).unwrap();
                 let c = list[2].to_digit(16).unwrap();
                 let d = list[3].to_digit(16).unwrap();
-                self.set(memory_addr, (a << 12 | b << 8 | c << 4 | d) as u16);
+                self.set(memory_addr, (c << 12 | d << 8 | a << 4 | b) as u16);
                 memory_addr += 1;
             }
         }

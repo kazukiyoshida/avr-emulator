@@ -1,4 +1,5 @@
 use super::flash_memory::*;
+use super::opcode_tree::*;
 use super::sram::*;
 use super::util::bit::*;
 
@@ -466,14 +467,13 @@ pub fn cpse(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) 
     let (r, d) = sram.gets(r_addr, d_addr);
     if r == d {
         // The skip size is diffrenet by next instruction size.
-        // let next_opcode = flash_memory.word(pc + 1);
-        // let (instr, _) = avr.decode_instr(next_opcode);
-        // if INSTRUCTION_32_BIT.contains(&instr) {
-        //     (pc + 3, cycle + 3)
-        // } else {
-        //     (pc + 2, cycle + 2)
-        // };
-        (pc + 2, cycle + 2) // wip
+        let next_word = flash_memory.get(pc + 1 as usize);
+        let (next_instr, _) = OPCODE_TREE.with(|tree| tree.find(next_word));
+        if INSTRUCTION_32_BIT.contains(&next_instr) {
+            (pc + 3, cycle + 3)
+        } else {
+            (pc + 2, cycle + 2)
+        }
     } else {
         (pc + 1, cycle + 1)
     }

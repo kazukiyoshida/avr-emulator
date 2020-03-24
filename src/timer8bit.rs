@@ -155,7 +155,7 @@ impl Timer8bit {
         }
     }
 
-    pub fn clk_io(&mut self, cycle: u64) {
+    pub fn next(&mut self, cycle: u64) {
         if !self.is_on() {
             self.last_cycle = cycle;
             return;
@@ -190,7 +190,7 @@ impl Timer8bit {
                 // TODO: compare match with OCRA, OCRB and update OCnA, OCnB
                 if self.tcnt() >= self.top() {
                     self.sram.borrow_mut().set(self.tcnt, 0);
-                    // WIP: update OCnA, OCnB
+                    // TODO: update OCnA, OCnB
                 }
             }
             Mode::PhaseCorrectPWM => {
