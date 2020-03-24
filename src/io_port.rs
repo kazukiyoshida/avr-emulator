@@ -57,9 +57,10 @@ impl Iterator for IOPort {
             for n in 0..8 {
                 // 出力 buffer が ON（ DDXn が ON ）ならば、PORTXn を PINXn に反映
                 if bit(self.ddrx(), n) {
+                    let portx = self.portx();
                     self.sram
                         .borrow_mut()
-                        .set_bit((self.pinx, n), bit(self.portx(), n))
+                        .set_bit((self.pinx, n), bit(portx, n))
                 }
             }
             self.last_portx = self.portx();

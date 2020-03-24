@@ -17,7 +17,7 @@ fn main() {
     avr.initialize();
     screenshot(&avr);
 
-    for count in 0..10 {
+    loop {
         avr.next();
         screenshot(&avr);
     }

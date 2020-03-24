@@ -305,10 +305,9 @@ impl Iterator for ATmega328P {
             self.pc,
             self.cycle,
         );
-        let cycle_diff = next_cycle - self.cycle;
-        self.timer0.next(cycle_diff);
-        self.timer1.next(cycle_diff);
-        self.timer2.next(cycle_diff);
+        self.timer0.next(next_cycle);
+        self.timer1.next(next_cycle);
+        self.timer2.next(next_cycle);
         self.portb.next();
         self.portc.next();
         self.portd.next();

@@ -177,10 +177,11 @@ impl Timer16bit {
                 let prescale = self.prescale().unwrap();
                 if prescale > last_prescale {
                     self.count = self.count * prescale / last_prescale;
+                    let tcnt = self.tcnt();
                     if self.is_up_phase {
-                        self.sram.borrow_mut().set_word(self.tcnt, self.tcnt() + 1);
+                        self.sram.borrow_mut().set_word(self.tcnt, tcnt + 1);
                     } else {
-                        self.sram.borrow_mut().set_word(self.tcnt, self.tcnt() - 1);
+                        self.sram.borrow_mut().set_word(self.tcnt, tcnt - 1);
                     };
                 }
                 self.count += 1;
@@ -194,10 +195,11 @@ impl Timer16bit {
             let prescale = self.prescale().unwrap();
             if self.count > prescale {
                 self.count -= prescale;
+                let tcnt = self.tcnt();
                 if self.is_up_phase {
-                    self.sram.borrow_mut().set_word(self.tcnt, self.tcnt() + 1);
+                    self.sram.borrow_mut().set_word(self.tcnt, tcnt + 1);
                 } else {
-                    self.sram.borrow_mut().set_word(self.tcnt, self.tcnt() - 1);
+                    self.sram.borrow_mut().set_word(self.tcnt, tcnt - 1);
                 };
             }
         }

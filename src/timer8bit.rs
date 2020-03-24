@@ -171,10 +171,11 @@ impl Timer8bit {
         let prescale = self.prescale().unwrap();
         if self.count > prescale {
             self.count -= prescale;
+            let tcnt = self.tcnt();
             if self.is_up_phase {
-                self.sram.borrow_mut().set(self.tcnt, self.tcnt() + 1);
+                self.sram.borrow_mut().set(self.tcnt, tcnt + 1);
             } else {
-                self.sram.borrow_mut().set(self.tcnt, self.tcnt() - 1);
+                self.sram.borrow_mut().set(self.tcnt, tcnt - 1);
             };
         }
 
