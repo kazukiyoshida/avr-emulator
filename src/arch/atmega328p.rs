@@ -113,8 +113,8 @@ pub enum Package {
 }
 
 pub struct ATmega328P {
-    pub pc: usize,
-    pub cycle: u64,
+    pc: usize,
+    cycle: u64,
     instr: Option<Instr>,
     instr_func: Option<InstrFunc>,
     sram: Rc<RefCell<SRAM>>,
