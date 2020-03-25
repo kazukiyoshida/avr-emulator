@@ -1,5 +1,6 @@
 SHELL=/bin/bash
 CARGO = cargo
+WASMPACK = wasm-pack
 
 # Build the project in debug mode
 .PHONY: build
@@ -21,6 +22,11 @@ fmt:
 test:
 	$(CARGO) test -- --nocapture
 
+# Wasm build
+.PHONY: wasm
+wasm:
+	$(WASMPACK) build --scope kazukiyoshida
+
 
 n: 0
 .PHONY: step
@@ -30,3 +36,8 @@ step:
 .PHONY: flow
 flow:
 	$(CARGO) run --example flow;
+
+# Publis wasm package
+.PHONY: npm-publish
+npm-publish:
+	cd pkg; npm publish --registry http://localhost:4873

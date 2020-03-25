@@ -135,3 +135,30 @@ fn test_bit() {
     assert_eq!(low_byte(0b1100_0011_0011_1100), 0b0011_1100);
     assert_eq!(concat(0b1100_0011, 0b01111_0000), 0b1100_0011_1111_0000);
 }
+
+
+// "01001" -> [false, true, false, false, true]
+pub fn from_string_to_vec_bool(input: &String) -> Vec<bool> {
+    input.chars().fold(vec![], |mut s, c| {
+        let b = if c.to_digit(10).unwrap() == 1 { true } else { false };
+        s.push(b);
+        s
+    })
+}
+
+// [false, true, false, false, true] -> "01001"
+pub fn from_vec_bool_to_string(input: &Vec<bool>) -> String {
+    input.iter().fold("".to_string(), |mut s, b| {
+        let c = if *b { "1" } else { "0" };
+        s = format!("{}{}", s, c);
+        s
+    })
+}
+
+#[test]
+fn test_vec_bool() {
+    let bools = vec![false, true, false, false, true];
+    let digits = "01001".to_string();
+    assert_eq!(bools, from_string_to_vec_bool(&digits));
+    assert_eq!(digits, from_vec_bool_to_string(&bools));
+}
