@@ -9,3 +9,4 @@ mod timer16bit;
 mod timer8bit;
 mod util;
 mod word;
+mod wasm;
