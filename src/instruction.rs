@@ -1,6 +1,7 @@
-use super::avr::*;
-use super::utils::*;
-use super::word::*;
+use super::flash_memory::*;
+use super::opcode_tree::*;
+use super::sram::*;
+use super::util::bit::*;
 
 #[rustfmt::skip]
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
@@ -17,674 +18,612 @@ pub const INSTRUCTION_32_BIT: [Instr; 4] = [
     Instr::CALL, Instr::JMP, Instr::LDS, Instr::STS,
 ];
 
-pub type InstrFunc = &'static dyn Fn(&dyn AVR);
+pub type InstrFunc = &'static dyn Fn(&mut SRAM, &FlashMemory, usize, u64) -> (usize, u64);
 
-pub fn add(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn add(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     let res = r.wrapping_add(d);
-    avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_bit(avr.b().c, has_borrow_from_msb(r, d, res));
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_arithmetic_instruction(d, r, res);
+    sram.set_bit(sram.bit_map.c, has_borrow_from_msb(r, d, res));
+    (pc + 1, cycle + 1)
 }
 
-pub fn adc(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
-    let c = avr.get_bit(avr.b().c) as u8;
+pub fn adc(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
+    let c = sram.get_bit(sram.bit_map.c) as u8;
     let res = r.wrapping_add(d).wrapping_add(c);
-    avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction(d, r, res);
-    avr.set_bit(avr.b().c, has_borrow_from_msb(r, d, res));
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_arithmetic_instruction(d, r, res);
+    sram.set_bit(sram.bit_map.c, has_borrow_from_msb(r, d, res));
+    (pc + 1, cycle + 1)
 }
 
-pub fn adiw(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand62();
-    let (dh, dl) = avr.get_registers(d_addr + 1, d_addr);
+pub fn adiw(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand62();
+    let (dh, dl) = sram.gets(d_addr + 1, d_addr);
     let res = concat(dh, dl).wrapping_add(k as u16);
-    avr.set_register(d_addr, high_byte(res));
-    avr.set_register(d_addr + 1, low_byte(res));
+    sram.set(d_addr, high_byte(res));
+    sram.set(d_addr + 1, low_byte(res));
 
-    avr.set_bit(avr.b().v, !msb(dh) & msb(high_byte(res)));
-    avr.set_bit(avr.b().n, msb(high_byte(res)));
-    avr.set_bit(avr.b().z, res == 0);
-    avr.set_bit(avr.b().c, !msb(high_byte(res)) & msb(dh));
-    avr.set_bit(avr.b().s, avr.signed_test());
+    sram.set_bit(sram.bit_map.v, !msb(dh) & msb(high_byte(res)));
+    sram.set_bit(sram.bit_map.n, msb(high_byte(res)));
+    sram.set_bit(sram.bit_map.z, res == 0);
+    sram.set_bit(sram.bit_map.c, !msb(high_byte(res)) & msb(dh));
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
 
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    (pc + 1, cycle + 1)
 }
 
-pub fn sbci(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand84();
-    let d = avr.get_register(d_addr);
-    let c = avr.get_bit(avr.b().c) as u8;
+pub fn sbci(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand84();
+    let d = sram.get(d_addr);
+    let c = sram.get_bit(sram.bit_map.c) as u8;
     let res = d.wrapping_sub(k).wrapping_sub(c);
-    avr.set_register(d_addr, res);
+    sram.set(d_addr, res);
 
-    avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, k, res));
-    avr.set_bit(avr.b().v, has_2complement_overflow_2(d, k, res));
-    avr.set_bit(avr.b().n, msb(res));
+    sram.set_bit(sram.bit_map.h, has_borrow_from_bit3_k(d, k, res));
+    sram.set_bit(sram.bit_map.v, has_2complement_overflow_2(d, k, res));
+    sram.set_bit(sram.bit_map.n, msb(res));
     if res != 0 {
-        avr.set_bit(avr.b().z, false);
+        sram.set_bit(sram.bit_map.z, false);
     };
     match d.checked_sub(k).and_then(|d_k| d_k.checked_sub(c)) {
-        None => avr.set_bit(avr.b().c, true),
-        _ => avr.set_bit(avr.b().c, false),
+        None => sram.set_bit(sram.bit_map.c, true),
+        _ => sram.set_bit(sram.bit_map.c, false),
     };
-    avr.set_bit(avr.b().s, avr.signed_test());
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
 
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    (pc + 1, cycle + 1)
 }
 
-pub fn dec(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let d = avr.get_register(d_addr);
+pub fn dec(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let d = sram.get(d_addr);
     let result = d.wrapping_sub(1);
-    avr.set_register(d_addr, result);
+    sram.set(d_addr, result);
 
-    avr.set_bit(avr.b().v, d == 0x80u8);
-    avr.set_bit(avr.b().n, msb(result));
-    avr.set_bit(avr.b().z, result == 0);
-    avr.set_bit(avr.b().s, avr.signed_test());
+    sram.set_bit(sram.bit_map.v, d == 0x80u8);
+    sram.set_bit(sram.bit_map.n, msb(result));
+    sram.set_bit(sram.bit_map.z, result == 0);
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
 
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    (pc + 1, cycle + 1)
 }
 
-pub fn com(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let d = avr.get_register(d_addr);
+pub fn com(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let d = sram.get(d_addr);
     let res = 0xff - d;
-    avr.set_register(d_addr, res);
-    avr.set_status_by_bit_instruction(res);
-    avr.set_bit(avr.b().c, false);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_bit_instruction(res);
+    sram.set_bit(sram.bit_map.c, false);
+    (pc + 1, cycle + 1)
 }
 
-pub fn sub(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn sub(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     let res = d.wrapping_sub(r);
-    avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction2(d, r, res);
-    avr.set_bit(avr.b().c, d < r);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_arithmetic_instruction2(d, r, res);
+    sram.set_bit(sram.bit_map.c, d < r);
+    (pc + 1, cycle + 1)
 }
 
-pub fn sbc(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
-    let c = avr.get_bit(avr.b().c) as u8;
+pub fn sbc(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
+    let c = sram.get_bit(sram.bit_map.c) as u8;
     let res = d.wrapping_sub(r).wrapping_sub(c);
-    avr.set_register(d_addr, res);
+    sram.set(d_addr, res);
 
-    avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, r, res));
-    avr.set_bit(avr.b().v, has_2complement_overflow(d, r, res));
-    avr.set_bit(avr.b().n, msb(res));
+    sram.set_bit(sram.bit_map.h, has_borrow_from_bit3_k(d, r, res));
+    sram.set_bit(sram.bit_map.v, has_2complement_overflow(d, r, res));
+    sram.set_bit(sram.bit_map.n, msb(res));
     if res != 0 {
-        avr.set_bit(avr.b().z, false);
+        sram.set_bit(sram.bit_map.z, false);
     }
-    avr.set_bit(avr.b().s, avr.signed_test());
-    avr.set_bit(avr.b().c, d < (r.wrapping_add(c)));
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
+    sram.set_bit(sram.bit_map.c, d < (r.wrapping_add(c)));
 
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    (pc + 1, cycle + 1)
 }
 
-pub fn subi(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand84();
-    let d = avr.get_register(d_addr);
+pub fn subi(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand84();
+    let d = sram.get(d_addr);
     let res = d.wrapping_sub(k);
-    avr.set_register(d_addr, res);
-    avr.set_status_by_arithmetic_instruction2(d, k, res);
-    avr.set_bit(avr.b().c, d < k);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_arithmetic_instruction2(d, k, res);
+    sram.set_bit(sram.bit_map.c, d < k);
+    (pc + 1, cycle + 1)
 }
 
-pub fn ld1(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x);
-    avr.set_register(d_addr, avr.get_register(x_addr as usize));
-    avr.pc_increment(1);
-    avr.cycle_increment(2); // 割り込みの有無が影響する
+pub fn ld1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let x_addr = sram.get_word(sram.word_map.x);
+    sram.set(d_addr, sram.get(x_addr as usize));
+    (pc + 1, cycle + 2) // 割り込みの有無が影響する
 }
 
-pub fn ld2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x);
-    let x = avr.get_register(x_addr as usize);
-    avr.set_register(d_addr, x);
-    avr.set_word(avr.w().x, x_addr + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn ld2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let x_addr = sram.get_word(sram.word_map.x);
+    let x = sram.get(x_addr as usize);
+    sram.set(d_addr, x);
+    sram.set_word(sram.word_map.x, x_addr + 1);
+    (pc + 1, cycle + 2)
 }
 
-pub fn ld3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x) - 1;
-    avr.set_word(avr.w().x, x_addr);
-    let x = avr.get_register(x_addr as usize);
-    avr.set_register(d_addr, x);
-    avr.pc_increment(1);
-    avr.cycle_increment(3);
+pub fn ld3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let x_addr = sram.get_word(sram.word_map.x) - 1;
+    sram.set_word(sram.word_map.x, x_addr);
+    let x = sram.get(x_addr as usize);
+    sram.set(d_addr, x);
+    (pc + 1, cycle + 3)
 }
 
-pub fn ldi(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand84();
-    avr.set_register(d_addr, k);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn ldi(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand84();
+    sram.set(d_addr, k);
+    (pc + 1, cycle + 1)
 }
 
-pub fn lds(avr: &dyn AVR) {
-    let (w, k_addr) = avr.double_word();
+pub fn lds(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (w, k_addr) = flash_memory.double_word(pc);
     let d_addr = w.operand5();
-    let k = avr.get_register(k_addr.0 as usize);
-    avr.set_register(d_addr, k);
-    avr.pc_increment(2);
-    avr.cycle_increment(2);
+    let k = sram.get(k_addr.0 as usize);
+    sram.set(d_addr, k);
+    (pc + 2, cycle + 2)
 }
 
-pub fn lddy1(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let y_addr = avr.get_word(avr.w().y);
-    avr.set_register(d_addr, avr.get_register(y_addr as usize));
-    avr.pc_increment(1);
-    avr.cycle_increment(2); // 1 cycles in Manual
+pub fn lddy1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let y_addr = sram.get_word(sram.word_map.y);
+    sram.set(d_addr, sram.get(y_addr as usize));
+    (pc + 1, cycle + 2) // 1 cycles in Manual
 }
 
-pub fn lddy2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let y_addr = avr.get_word(avr.w().y);
-    avr.set_register(d_addr, avr.get_register(y_addr as usize));
-    avr.set_word(avr.w().y, y_addr + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn lddy2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let y_addr = sram.get_word(sram.word_map.y);
+    sram.set(d_addr, sram.get(y_addr as usize));
+    sram.set_word(sram.word_map.y, y_addr + 1);
+    (pc + 1, cycle + 2)
 }
 
-pub fn lddy3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let y_addr = avr.get_word(avr.w().y) - 1;
-    avr.set_word(avr.w().y, y_addr);
-    avr.set_register(d_addr, avr.get_register(y_addr as usize));
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn lddy3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let y_addr = sram.get_word(sram.word_map.y) - 1;
+    sram.set_word(sram.word_map.y, y_addr);
+    sram.set(d_addr, sram.get(y_addr as usize));
+    (pc + 1, cycle + 2)
 }
 
-pub fn lddz1(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let z_addr = avr.get_word(avr.w().z);
-    avr.set_register(d_addr, avr.get_register(z_addr as usize));
-    avr.pc_increment(1);
-    avr.cycle_increment(2); // 1 cycles in Manual
+pub fn lddz1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z);
+    sram.set(d_addr, sram.get(z_addr as usize));
+    (pc + 1, cycle + 2) // 1 cycles in Manual
 }
 
-pub fn lddz2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let z_addr = avr.get_word(avr.w().z);
-    avr.set_register(d_addr, avr.get_register(z_addr as usize));
-    avr.set_word(avr.w().z, z_addr + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn lddz2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z);
+    sram.set(d_addr, sram.get(z_addr as usize));
+    sram.set_word(sram.word_map.z, z_addr + 1);
+    (pc + 1, cycle + 2)
 }
 
-pub fn lddz3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let z_addr = avr.get_word(avr.w().z) - 1;
-    avr.set_word(avr.w().z, z_addr);
-    avr.set_register(d_addr, avr.get_register(z_addr as usize));
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn lddz3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z) - 1;
+    sram.set_word(sram.word_map.z, z_addr);
+    sram.set(d_addr, sram.get(z_addr as usize));
+    (pc + 1, cycle + 2)
 }
 
-pub fn out(avr: &dyn AVR) {
-    let (a_addr, r_addr) = avr.word().operand65();
-    let r = avr.get_register(r_addr);
-    avr.set_register(a_addr, r);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn out(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (a_addr, r_addr) = flash_memory.word(pc).operand65();
+    let r = sram.get(r_addr);
+    sram.set(a_addr, r);
+    (pc + 1, cycle + 1)
 }
 
-pub fn in_instr(avr: &dyn AVR) {
-    let (a_addr, d_addr) = avr.word().operand65();
-    let a = avr.get_register(a_addr);
+pub fn in_instr(
+    sram: &mut SRAM,
+    flash_memory: &FlashMemory,
+    pc: usize,
+    cycle: u64,
+) -> (usize, u64) {
+    let (a_addr, d_addr) = flash_memory.word(pc).operand65();
+    let a = sram.get(a_addr);
     if a_addr == 0x5f {
         // SREG
-        avr.set_register(d_addr, a & 0b111_1111);
+        sram.set(d_addr, a & 0b111_1111);
     } else {
-        avr.set_register(d_addr, a);
+        sram.set(d_addr, a);
     };
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    (pc + 1, cycle + 1)
 }
 
-pub fn nop(avr: &dyn AVR) {
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn nop(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    (pc + 1, cycle + 1)
 }
 
-pub fn call(avr: &dyn AVR) {
-    // Push current pc to stack
-    avr.push_pc_stack(avr.pc() + 2);
-
-    // Update pc by immediate
-    let (w1, w2) = avr.double_word();
-    avr.set_pc(w1.operand22(w2));
-
-    avr.cycle_increment(4);
+pub fn call(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    sram.push_pc_stack(pc + 2);
+    let (w1, w2) = flash_memory.double_word(pc);
+    (w1.operand22(w2) as usize, cycle + 4)
 }
 
-pub fn rol(avr: &dyn AVR) {
-    let d_addr = avr.word().operand10() as usize;
-    let d_old = avr.get_register(d_addr);
-    let c = avr.get_bit(avr.b().c) as u8;
+pub fn rol(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand10() as usize;
+    let d_old = sram.get(d_addr);
+    let c = sram.get_bit(sram.bit_map.c) as u8;
     let d_new = (d_old << 1) | c;
-    avr.set_register(d_addr, d_new);
+    sram.set(d_addr, d_new);
 
-    avr.set_bit(avr.b().h, (d_old & 0b0000_1000) >> 3 == 1);
-    avr.set_bit(avr.b().n, msb(d_new));
-    avr.set_bit(avr.b().z, d_new == 0);
-    avr.set_bit(avr.b().c, msb(d_old));
-    avr.set_bit(avr.b().v, avr.get_bit(avr.b().n) ^ avr.get_bit(avr.b().c));
-    avr.set_bit(avr.b().s, avr.signed_test());
+    sram.set_bit(sram.bit_map.h, (d_old & 0b0000_1000) >> 3 == 1);
+    sram.set_bit(sram.bit_map.n, msb(d_new));
+    sram.set_bit(sram.bit_map.z, d_new == 0);
+    sram.set_bit(sram.bit_map.c, msb(d_old));
+    sram.set_bit(
+        sram.bit_map.v,
+        sram.get_bit(sram.bit_map.n) ^ sram.get_bit(sram.bit_map.c),
+    );
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
 
-    avr.pc_increment(1);
-    avr.cycle_increment(3);
+    (pc + 1, cycle + 3)
 }
 
-pub fn lsl(avr: &dyn AVR) {
-    let d_addr = avr.word().operand10() as usize;
-    let d_old = avr.get_register(d_addr);
+pub fn lsl(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand10() as usize;
+    let d_old = sram.get(d_addr);
     let d_new = d_old << 1;
-    avr.set_register(d_addr, d_new);
+    sram.set(d_addr, d_new);
 
-    avr.set_bit(avr.b().h, (d_old & 0b0000_1000) >> 3 == 1);
-    avr.set_bit(avr.b().n, msb(d_new));
-    avr.set_bit(avr.b().z, d_new == 0);
-    avr.set_bit(avr.b().c, msb(d_old));
-    avr.set_bit(avr.b().v, avr.get_bit(avr.b().n) ^ avr.get_bit(avr.b().c));
-    avr.set_bit(avr.b().s, avr.signed_test());
+    sram.set_bit(sram.bit_map.h, (d_old & 0b0000_1000) >> 3 == 1);
+    sram.set_bit(sram.bit_map.n, msb(d_new));
+    sram.set_bit(sram.bit_map.z, d_new == 0);
+    sram.set_bit(sram.bit_map.c, msb(d_old));
+    sram.set_bit(
+        sram.bit_map.v,
+        sram.get_bit(sram.bit_map.n) ^ sram.get_bit(sram.bit_map.c),
+    );
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
 
-    avr.pc_increment(1);
-    avr.cycle_increment(3);
+    (pc + 1, cycle + 3)
 }
 
-pub fn rcall(avr: &dyn AVR) {
-    let k = avr.word().operand12() as u32;
-    let pc = avr.pc();
-    avr.set_pc(pc + k + 1);
-    avr.cycle_increment(3);
+pub fn rcall(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let k = flash_memory.word(pc).operand12() as u32;
+    let pc = pc;
+    (pc + k as usize + 1, cycle + 3)
 }
 
-pub fn jmp(avr: &dyn AVR) {
-    if avr.pc() == 0 {
-        avr.cycle_increment(2);
-    } else {
-        avr.cycle_increment(3);
-    }
-    let (w1, w2) = avr.double_word();
+pub fn jmp(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let cycle_diff = if pc == 0 { 2 } else { 3 };
+    let (w1, w2) = flash_memory.double_word(pc);
     let k = w1.operand22(w2);
-    avr.set_pc(k);
+    (k as usize, cycle + cycle_diff)
 }
 
-pub fn rjmp(avr: &dyn AVR) {
-    let k = avr.word().operand12();
-    let pc = avr.pc();
-    let result = add_12bits_in_twos_complement_form(pc, k) + 1u32;
-    avr.set_pc(result);
-    avr.cycle_increment(2);
+pub fn rjmp(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let k = flash_memory.word(pc).operand12();
+    let pc = pc;
+    let result = add_12bits_in_twos_complement_form(pc as u32, k) + 1u32;
+    (result as usize, cycle + 2)
 }
 
-pub fn sts(avr: &dyn AVR) {
-    let (w1, k) = avr.double_word();
+pub fn sts(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (w1, k) = flash_memory.double_word(pc);
     let d_addr = w1.operand5();
-    let d = avr.get_register(d_addr);
-    avr.set_register(k.0 as usize, d);
-    avr.pc_increment(2);
-    avr.cycle_increment(2);
+    let d = sram.get(d_addr);
+    sram.set(k.0 as usize, d);
+    (pc + 2, cycle + 2)
 }
 
-pub fn lpm1(avr: &dyn AVR) {
-    avr.set_register(0, avr.z_program_memory());
-    avr.pc_increment(1);
-    avr.cycle_increment(3);
+pub fn lpm1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let z_addr = sram.get_word(sram.word_map.z);
+    sram.set(0, flash_memory.z_program_memory(z_addr));
+    (pc + 1, cycle + 3)
 }
 
-pub fn lpm2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    avr.set_register(d_addr, avr.z_program_memory());
-    avr.pc_increment(1);
-    avr.cycle_increment(3);
+pub fn lpm2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z);
+    sram.set(d_addr, flash_memory.z_program_memory(z_addr));
+    (pc + 1, cycle + 3)
 }
 
-pub fn lpm3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    avr.set_register(d_addr, avr.z_program_memory());
-    avr.set_word(avr.w().z, avr.get_word(avr.w().z) + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(3);
+pub fn lpm3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z);
+    sram.set(d_addr, flash_memory.z_program_memory(z_addr));
+    sram.set_word(sram.word_map.z, sram.get_word(sram.word_map.z) + 1);
+    (pc + 1, cycle + 3)
 }
 
-pub fn st1(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x);
-    let d = avr.get_register(d_addr);
-    avr.set_register(x_addr as usize, d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn st1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let x_addr = sram.get_word(sram.word_map.x);
+    let d = sram.get(d_addr);
+    sram.set(x_addr as usize, d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn st2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x);
-    let d = avr.get_register(d_addr);
-    avr.set_register(x_addr as usize, d);
-    avr.set_word(avr.w().x, x_addr + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn st2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let x_addr = sram.get_word(sram.word_map.x);
+    let d = sram.get(d_addr);
+    sram.set(x_addr as usize, d);
+    sram.set_word(sram.word_map.x, x_addr + 1);
+    (pc + 1, cycle + 2)
 }
 
-pub fn st3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let x_addr = avr.get_word(avr.w().x) - 1;
-    let d = avr.get_register(d_addr);
-    avr.set_word(avr.w().x, x_addr);
-    avr.set_register(x_addr as usize, d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn st3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let x_addr = sram.get_word(sram.word_map.x) - 1;
+    let d = sram.get(d_addr);
+    sram.set_word(sram.word_map.x, x_addr);
+    sram.set(x_addr as usize, d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn sty1(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let y_addr = avr.get_word(avr.w().y);
-    let d = avr.get_register(d_addr);
-    avr.set_register(y_addr as usize, d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn sty1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let y_addr = sram.get_word(sram.word_map.y);
+    let d = sram.get(d_addr);
+    sram.set(y_addr as usize, d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn sty2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let y_addr = avr.get_word(avr.w().y);
-    let d = avr.get_register(d_addr);
-    avr.set_register(y_addr as usize, d);
-    avr.set_word(avr.w().y, y_addr + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn sty2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let y_addr = sram.get_word(sram.word_map.y);
+    let d = sram.get(d_addr);
+    sram.set(y_addr as usize, d);
+    sram.set_word(sram.word_map.y, y_addr + 1);
+    (pc + 1, cycle + 2)
 }
 
-pub fn sty3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let y_addr = avr.get_word(avr.w().y) - 1;
-    let d = avr.get_register(d_addr);
-    avr.set_word(avr.w().y, y_addr);
-    avr.set_register(y_addr as usize, d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn sty3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let y_addr = sram.get_word(sram.word_map.y) - 1;
+    let d = sram.get(d_addr);
+    sram.set_word(sram.word_map.y, y_addr);
+    sram.set(y_addr as usize, d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn stz1(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let z_addr = avr.get_word(avr.w().z);
-    let d = avr.get_register(d_addr);
-    avr.set_register(z_addr as usize, d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn stz1(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z);
+    let d = sram.get(d_addr);
+    sram.set(z_addr as usize, d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn stz2(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let z_addr = avr.get_word(avr.w().z);
-    let d = avr.get_register(d_addr);
-    avr.set_register(z_addr as usize, d);
-    avr.set_word(avr.w().z, z_addr + 1);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn stz2(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z);
+    let d = sram.get(d_addr);
+    sram.set(z_addr as usize, d);
+    sram.set_word(sram.word_map.z, z_addr + 1);
+    (pc + 1, cycle + 2)
 }
 
-pub fn stz3(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let z_addr = avr.get_word(avr.w().z) - 1;
-    let d = avr.get_register(d_addr);
-    avr.set_word(avr.w().z, z_addr);
-    avr.set_register(z_addr as usize, d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn stz3(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let z_addr = sram.get_word(sram.word_map.z) - 1;
+    let d = sram.get(d_addr);
+    sram.set_word(sram.word_map.z, z_addr);
+    sram.set(z_addr as usize, d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn cp(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn cp(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     let res = d.wrapping_sub(r);
-    avr.set_status_by_arithmetic_instruction2(d, r, res);
-    avr.set_bit(avr.b().c, d < r);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set_status_by_arithmetic_instruction2(d, r, res);
+    sram.set_bit(sram.bit_map.c, d < r);
+    (pc + 1, cycle + 1)
 }
 
-pub fn cpi(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand84();
-    let d = avr.get_register(d_addr);
+pub fn cpi(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand84();
+    let d = sram.get(d_addr);
     let res = d.wrapping_sub(k);
-    avr.set_status_by_arithmetic_instruction2(d, k, res);
-    avr.set_bit(avr.b().c, d < k);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set_status_by_arithmetic_instruction2(d, k, res);
+    sram.set_bit(sram.bit_map.c, d < k);
+    (pc + 1, cycle + 1)
 }
 
-pub fn cpc(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
-    let c = avr.get_bit(avr.b().c) as u8;
+pub fn cpc(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
+    let c = sram.get_bit(sram.bit_map.c) as u8;
     let res = d.wrapping_sub(r).wrapping_sub(c);
 
-    avr.set_bit(avr.b().h, has_borrow_from_bit3_k(d, r, res));
-    avr.set_bit(avr.b().v, has_2complement_overflow_2(d, r, res));
-    avr.set_bit(avr.b().n, msb(res));
+    sram.set_bit(sram.bit_map.h, has_borrow_from_bit3_k(d, r, res));
+    sram.set_bit(sram.bit_map.v, has_2complement_overflow_2(d, r, res));
+    sram.set_bit(sram.bit_map.n, msb(res));
     if res != 0 {
-        avr.set_bit(avr.b().z, false);
+        sram.set_bit(sram.bit_map.z, false);
     }
-    avr.set_bit(avr.b().c, d < r + c);
-    avr.set_bit(avr.b().s, avr.signed_test());
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set_bit(sram.bit_map.c, d < r + c);
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
+    (pc + 1, cycle + 1)
 }
 
-pub fn cpse(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn cpse(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     if r == d {
         // The skip size is diffrenet by next instruction size.
-        let next_opcode = Word(avr.fetch(avr.pc() + 1));
-        let (instr, _) = avr.decode_instr(next_opcode);
-        if INSTRUCTION_32_BIT.contains(&instr) {
-            avr.set_pc(avr.pc() + 3);
-            avr.cycle_increment(3);
+        let next_word = flash_memory.get(pc + 1 as usize);
+        let (next_instr, _) = OPCODE_TREE.with(|tree| tree.find(next_word));
+        if INSTRUCTION_32_BIT.contains(&next_instr) {
+            (pc + 3, cycle + 3)
         } else {
-            avr.set_pc(avr.pc() + 2);
-            avr.cycle_increment(2);
-        };
+            (pc + 2, cycle + 2)
+        }
     } else {
-        avr.pc_increment(1);
-        avr.cycle_increment(1);
+        (pc + 1, cycle + 1)
     }
 }
 
-pub fn ori(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand84();
-    let d = avr.get_register(d_addr);
+pub fn ori(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand84();
+    let d = sram.get(d_addr);
     let res = d | k;
-    avr.set_register(d_addr, res);
-    avr.set_status_by_bit_instruction(res);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_bit_instruction(res);
+    (pc + 1, cycle + 1)
 }
 
-pub fn and(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn and(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     let res = d & r;
-    avr.set_register(d_addr, res);
-    avr.set_status_by_bit_instruction(res);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_bit_instruction(res);
+    (pc + 1, cycle + 1)
 }
 
-pub fn andi(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand84();
-    let d = avr.get_register(d_addr);
+pub fn andi(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand84();
+    let d = sram.get(d_addr);
     let res = d & k;
-    avr.set_register(d_addr, res);
-    avr.set_status_by_bit_instruction(res);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_bit_instruction(res);
+    (pc + 1, cycle + 1)
 }
 
-pub fn or(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn or(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     let res = d | r;
-    avr.set_register(d_addr, res);
-    avr.set_status_by_bit_instruction(res);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_bit_instruction(res);
+    (pc + 1, cycle + 1)
 }
 
-pub fn eor(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let (r, d) = avr.get_registers(r_addr, d_addr);
+pub fn eor(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let (r, d) = sram.gets(r_addr, d_addr);
     let res = d ^ r;
-    avr.set_register(d_addr, res);
-    avr.set_status_by_bit_instruction(res);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+    sram.set(d_addr, res);
+    sram.set_status_by_bit_instruction(res);
+    (pc + 1, cycle + 1)
 }
 
-pub fn breq(avr: &dyn AVR) {
-    if avr.get_bit(avr.b().z) {
-        let k = avr.word().operand7();
-        let pc = avr.pc();
-        let result = add_7bits_in_twos_complement_form(pc, k.wrapping_add(1u8));
-        avr.set_pc(result);
-        avr.cycle_increment(2);
+pub fn breq(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    if sram.get_bit(sram.bit_map.z) {
+        let k = flash_memory.word(pc).operand7();
+        let pc = pc;
+        let result = add_7bits_in_twos_complement_form(pc as u32, k.wrapping_add(1u8));
+        (result as usize, cycle + 2)
     } else {
-        avr.pc_increment(1);
-        avr.cycle_increment(1);
+        (pc + 1, cycle + 1)
     }
 }
 
-pub fn brne(avr: &dyn AVR) {
-    if avr.get_bit(avr.b().z) {
-        avr.pc_increment(1);
-        avr.cycle_increment(1);
+pub fn brne(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    if sram.get_bit(sram.bit_map.z) {
+        (pc + 1, cycle + 1)
     } else {
-        let k = avr.word().operand7();
-        let pc = avr.pc();
-        let result = add_7bits_in_twos_complement_form(pc, k.wrapping_add(1u8));
-        avr.set_pc(result as u32);
-        avr.cycle_increment(2);
+        let k = flash_memory.word(pc).operand7();
+        let pc = pc;
+        let result = add_7bits_in_twos_complement_form(pc as u32, k.wrapping_add(1u8));
+        (result as usize, cycle + 2)
     }
 }
 
-pub fn brcs(avr: &dyn AVR) {
-    if avr.get_bit(avr.b().c) {
-        let k = avr.word().operand7();
-        let pc = avr.pc();
-        let result = add_7bits_in_twos_complement_form(pc, k.wrapping_add(1u8));
-        avr.set_pc(result as u32);
-        avr.cycle_increment(2);
+pub fn brcs(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    if sram.get_bit(sram.bit_map.c) {
+        let k = flash_memory.word(pc).operand7();
+        let pc = pc;
+        let result = add_7bits_in_twos_complement_form(pc as u32, k.wrapping_add(1u8));
+        (result as usize, cycle + 2)
     } else {
-        avr.pc_increment(1);
-        avr.cycle_increment(1);
+        (pc + 1, cycle + 1)
     }
 }
 
-pub fn sbis(avr: &dyn AVR) {
-    let (a_addr, b) = avr.word().operand53();
+pub fn sbis(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (a_addr, b) = flash_memory.word(pc).operand53();
     // I/O Register starts from 0x20(0x32), so there is offset.
-    let a = avr.get_register((a_addr + 0x20) as usize);
+    let a = sram.get((a_addr + 0x20) as usize);
     if bit(a, b) {
-        // WIP: ATmega328p is 16bit Program Counter machine...
-        avr.set_pc(avr.pc() + 2);
-        avr.cycle_increment(2);
+        // TODO: ATmega328p is 16bit Program Counter machine...
+        (pc + 2, cycle + 2)
     } else {
-        avr.pc_increment(1);
-        avr.cycle_increment(1);
+        (pc + 1, cycle + 1)
     }
 }
 
-pub fn sbiw(avr: &dyn AVR) {
-    let (k, d_addr) = avr.word().operand62();
-    let (dh, dl) = avr.get_registers(d_addr + 1, d_addr);
+pub fn sbiw(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (k, d_addr) = flash_memory.word(pc).operand62();
+    let (dh, dl) = sram.gets(d_addr + 1, d_addr);
     let result = concat(dh, dl).wrapping_sub(k as u16);
-    avr.set_register(d_addr + 1, high_byte(result));
-    avr.set_register(d_addr, low_byte(result));
+    sram.set(d_addr + 1, high_byte(result));
+    sram.set(d_addr, low_byte(result));
 
-    avr.set_bit(avr.b().v, msb(high_byte(result)) & !msb(dh));
-    avr.set_bit(avr.b().c, msb(high_byte(result)) & !msb(dh));
-    avr.set_bit(avr.b().n, msb(high_byte(result)));
-    avr.set_bit(avr.b().z, msb(high_byte(result)));
-    avr.set_bit(avr.b().s, avr.signed_test());
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+    sram.set_bit(sram.bit_map.v, msb(high_byte(result)) & !msb(dh));
+    sram.set_bit(sram.bit_map.c, msb(high_byte(result)) & !msb(dh));
+    sram.set_bit(sram.bit_map.n, msb(high_byte(result)));
+    sram.set_bit(sram.bit_map.z, msb(high_byte(result)));
+    sram.set_bit(sram.bit_map.s, sram.signed_test());
+    (pc + 1, cycle + 2)
 }
 
-pub fn sei(avr: &dyn AVR) {
-    avr.set_bit(avr.b().i, true);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn sei(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    sram.set_bit(sram.bit_map.i, true);
+    (pc + 1, cycle + 1)
 }
 
-pub fn cli(avr: &dyn AVR) {
-    avr.set_bit(avr.b().i, false);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn cli(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    sram.set_bit(sram.bit_map.i, false);
+    (pc + 1, cycle + 1)
 }
 
-pub fn ret(avr: &dyn AVR) {
-    let pc = avr.pop_pc_stack();
-    avr.set_pc(pc as u32);
-    avr.cycle_increment(4);
+pub fn ret(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let pc = sram.pop_pc_stack();
+    (pc as usize, cycle + 4)
 }
 
-pub fn push(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let d = avr.get_register(d_addr);
-    avr.push_stack(d);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn push(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let d = sram.get(d_addr);
+    sram.push_stack(d);
+    (pc + 1, cycle + 2)
 }
 
-pub fn pop(avr: &dyn AVR) {
-    let d_addr = avr.word().operand5();
-    let s = avr.pop_stack();
-    avr.set_register(d_addr, s);
-    avr.pc_increment(1);
-    avr.cycle_increment(2);
+pub fn pop(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let d_addr = flash_memory.word(pc).operand5();
+    let s = sram.pop_stack();
+    sram.set(d_addr, s);
+    (pc + 1, cycle + 2)
 }
 
-pub fn mov(avr: &dyn AVR) {
-    let (r_addr, d_addr) = avr.word().operand55();
-    let r = avr.get_register(r_addr);
-    avr.set_register(d_addr, r);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn mov(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (r_addr, d_addr) = flash_memory.word(pc).operand55();
+    let r = sram.get(r_addr);
+    sram.set(d_addr, r);
+    (pc + 1, cycle + 1)
 }
 
-pub fn movw(avr: &dyn AVR) {
-    let (d_addr, r_addr) = avr.word().operand44();
-    let (rl, rh) = avr.get_registers(r_addr, r_addr + 1);
-    avr.set_register(d_addr, rl);
-    avr.set_register(d_addr + 1, rh);
-    avr.pc_increment(1);
-    avr.cycle_increment(1);
+pub fn movw(sram: &mut SRAM, flash_memory: &FlashMemory, pc: usize, cycle: u64) -> (usize, u64) {
+    let (d_addr, r_addr) = flash_memory.word(pc).operand44();
+    let (rl, rh) = sram.gets(r_addr, r_addr + 1);
+    sram.set(d_addr, rl);
+    sram.set(d_addr + 1, rh);
+    (pc + 1, cycle + 1)
 }

@@ -13,32 +13,32 @@ impl Word {
     }
 
     // d, r
+    // operand is 1 left shifted
     pub fn operand44(&self) -> (usize, usize) {
-        // operand is 1 left shifted
         (
             (operand(self.0, 0b0000000011110000) * 2) as usize,
             (operand(self.0, 0b0000000000001111) * 2) as usize,
         )
     }
 
+    // I/O Register starts from 0x20(0d32), so there is offset.
     pub fn operand65(&self) -> (usize, usize) {
-        // I/O Register starts from 0x20(0d32), so there is offset.
         (
             (operand(self.0, 0b0000_0110_0000_1111) + 0x20) as usize,
             operand(self.0, 0b0000_0001_1111_0000) as usize,
         )
     }
 
+    // d_addr = {24, 26, 28, 30}
     pub fn operand62(&self) -> (u8, usize) {
-        // d_addr = {24, 26, 28, 30}
         (
             operand(self.0, 0b0000_0000_1100_1111) as u8,
             (operand(self.0, 0b0000_0000_0011_0000) * 2 + 24) as usize,
         )
     }
 
+    // there is a 16 addr offset
     pub fn operand84(&self) -> (u8, usize) {
-        // there is a 16 addr offset
         (
             operand(self.0, 0b0000111100001111) as u8,
             (operand(self.0, 0b0000000011110000) + 16) as usize,
